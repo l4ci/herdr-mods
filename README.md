@@ -6,6 +6,8 @@ Each mod has its own folder with a `RECIPE.md`, the brief an agent can build it 
 
 ## vitals
 
+<img src="vitals/preview.png" width="284" alt="Vitals panel with one card for this computer and one for a Linux machine">
+
 One card per machine: this computer first, then every machine connected in Herdr.
 
 Each card shows CPU, memory, swap, disk and network. CPU, memory and network also have a small graph of the last 40 samples. On a Mac the headline shows the battery, and a click on the local card opens Activity Monitor. Hover the CPU row to see the three busiest processes.
@@ -17,6 +19,8 @@ It samples every 3 seconds while the Herdr window is in front and the tab is vis
 Network counts physical interfaces only (`en*` on macOS; on Linux everything except loopback, Docker, bridges and VPN tunnels), so VPN traffic is not counted twice.
 
 ## limits
+
+<img src="limits/preview.png" width="284" alt="Limits panel with cards for two Claude accounts and Codex">
 
 Subscription usage for Claude accounts and Codex, as bars with a pace mark and the reset time. A click opens the usage page.
 

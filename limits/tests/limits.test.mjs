@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseOutput, parseClaude, parseCodex, windowLabel, windowState, tone, resetText, span, ageText, isStale, isoSeconds } from "../data.js";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, chmodSync, utimesSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SCRIPT, parseOutput, parseClaude, parseCodex, windowLabel, windowState, tone, resetText, span, ageText, isStale, isoSeconds } from "../data.js";
 
 const fx = (n) => readFileSync(new URL(`./fixtures/${n}`, import.meta.url), "utf8");
 const H = 3600;
@@ -135,4 +139,90 @@ test("isoSeconds handles microseconds and bad input", () => {
   assert.equal(isoSeconds("2026-11-03T14:50:00.669678+00:00"), Date.parse("2026-11-03T14:50:00.669Z") / 1000);
   assert.equal(isoSeconds(null), null);
   assert.equal(isoSeconds("nope"), null);
+});
+
+// The script against a fake $HOME, with stub `security` and `curl` first in PATH.
+// Stub curl records the config it gets on stdin and prints the canned body.
+function sandbox({ blob = null, body = '{"five_hour":{"utilization":12,"resets_at":null},"seven_day":{"utilization":34,"resets_at":null}}', headers = "" } = {}) {
+  const root = mkdtempSync(join(tmpdir(), "limits-"));
+  const home = join(root, "home"), bin = join(root, "bin"), cache = join(root, "cache");
+  for (const d of [".claude-x/projects", ".claude-mem", ".claude/projects"]) mkdirSync(join(home, d), { recursive: true });
+  for (const d of [".claude-x", ".claude-mem", ".claude"]) writeFileSync(join(home, d, "settings.json"), "{}");
+  mkdirSync(bin);
+  const stub = (name, text) => { writeFileSync(join(bin, name), `#!/bin/sh\n${text}\n`); chmodSync(join(bin, name), 0o755); };
+  // Only the hashed service (.claude-x) has a login; the default dir has none.
+  stub("security", blob === null ? "exit 44" : `case "$*" in *credentials-*) cat "${root}/blob" ;; *) exit 44 ;; esac`);
+  if (blob !== null) writeFileSync(join(root, "blob"), blob);
+  writeFileSync(join(root, "body"), body);
+  writeFileSync(join(root, "headers"), headers);
+  stub("curl", `cat > "${root}/curl-stdin"; echo "$*" > "${root}/curl-args"
+while [ $# -gt 0 ]; do [ "$1" = -D ] && cp "${root}/headers" "$2"; shift; done
+cat "${root}/body"`);
+  const run = () => execFileSync("sh", ["-c", SCRIPT], { encoding: "utf8", env: { HOME: home, PATH: `${bin}:/usr/bin:/bin`, HERDR_LIMITS_CACHE: cache } });
+  return { root, home, cache, run };
+}
+const FUTURE = (Date.now() + 3600_000);
+const login = (expiresAt = FUTURE) => JSON.stringify({
+  claudeAiOauth: { accessToken: "sk-ant-oat01-GOOD", refreshToken: "sk-ant-ort01-R", expiresAt, scopes: ["user:inference"] },
+  mcpOAuth: { "some-server": { accessToken: "mcp-token-MUST-NOT-LEAK", expiresAt: 1 } },
+});
+const cacheFile = (sb) => { // the one cache file of .claude-x
+  const out = execFileSync("sh", ["-c", `ls "${sb.cache}" 2>/dev/null | grep 'statusline-usage-.*json$' || true`], { encoding: "utf8" }).trim();
+  return out ? join(sb.cache, out) : null;
+};
+
+test("script: no cache -> fetches with the Claude token only, and never prints it", () => {
+  const sb = sandbox({ blob: login() });
+  const out = sb.run();
+  const d = parseOutput(out);
+  assert.deepEqual(d.claude.map((a) => [a.name, a.label]), [[".claude-x", "Claude X"]]); // .claude-mem: no projects; .claude: no login
+  assert.deepEqual(d.claude[0].windows.map((w) => [w.label, w.used]), [["5h", 12], ["7d", 34]]);
+  assert.equal(readFileSync(join(sb.root, "curl-stdin"), "utf8"), 'header = "Authorization: Bearer sk-ant-oat01-GOOD"\n');
+  const args = readFileSync(join(sb.root, "curl-args"), "utf8");
+  assert.ok(!args.includes("sk-ant") && !out.includes("sk-ant") && !out.includes("mcp-token"));
+  assert.match(cacheFile(sb), /statusline-usage-[0-9a-f]{8}\.json$/);
+});
+
+test("script: a fresh cache is used as it is, no fetch", () => {
+  const sb = sandbox({ blob: login() });
+  sb.run();
+  execFileSync("rm", [join(sb.root, "curl-stdin")]);
+  assert.equal(parseOutput(sb.run()).claude[0].windows[1].used, 34);
+  assert.ok(!existsSync(join(sb.root, "curl-stdin")));
+});
+
+test("script: an old cache is fetched again", () => {
+  const sb = sandbox({ blob: login() });
+  sb.run();
+  const old = new Date(Date.now() - 301_000);
+  utimesSync(cacheFile(sb), old, old);
+  writeFileSync(join(sb.root, "body"), '{"five_hour":{"utilization":50,"resets_at":null}}');
+  assert.equal(parseOutput(sb.run()).claude[0].windows[0].used, 50);
+});
+
+test("script: expired or missing login -> no request, the account shows without data", () => {
+  for (const blob of [login(Date.now() - 1000), null, '{"mcpOAuth":{"s":{"accessToken":"mcp-token"}}}']) {
+    const sb = sandbox({ blob });
+    const d = parseOutput(sb.run());
+    assert.deepEqual(d.claude.map((a) => [a.name, a.windows.length]), [[".claude-x", 0]]);
+    assert.ok(!existsSync(join(sb.root, "curl-stdin")));
+  }
+});
+
+test("script: a failed fetch backs off for Retry-After seconds", () => {
+  const sb = sandbox({ blob: login(), body: '{"error":"rate_limited"}', headers: "HTTP/2 429\r\nRetry-After: 120\r\n" });
+  assert.equal(parseOutput(sb.run()).claude[0].windows.length, 0);
+  const backoff = execFileSync("sh", ["-c", `cat "${sb.cache}"/*.backoff`], { encoding: "utf8" }).trim();
+  assert.equal(backoff, "120");
+  execFileSync("rm", [join(sb.root, "curl-stdin")]);
+  sb.run();
+  assert.ok(!existsSync(join(sb.root, "curl-stdin"))); // inside the window: no second request
+});
+
+test("script: ~/.claude gets a card when it has a cache file, labelled Claude", () => {
+  const sb = sandbox();
+  mkdirSync(sb.cache);
+  writeFileSync(join(sb.cache, "statusline-usage.json"), '{"seven_day":{"utilization":7,"resets_at":null}}\n');
+  const d = parseOutput(sb.run());
+  assert.deepEqual(d.claude.map((a) => [a.name, a.label, a.windows.length]), [[".claude", "Claude", 1], [".claude-x", "Claude X", 0]]);
 });

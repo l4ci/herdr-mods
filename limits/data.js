@@ -4,26 +4,82 @@
 // Apache-2.0.
 
 // One shell call reads everything (LC_ALL=C: some locales use decimal commas).
-// Claude: the status line's per-account usage cache, /tmp/claude/statusline-usage-<hash>.json,
-// <hash> = first 8 hex of sha256 of the config dir path. Accounts = ~/.claude-* with a
-// settings.json and a projects dir (.claude-mem has the former only).
+// Claude: one account per config dir, ~/.claude and ~/.claude-* with a settings.json and
+// a projects dir (.claude-mem has the former only). ~/.claude is listed only when it has
+// a login or a cache file, so an unused default dir adds no empty card.
+// The numbers live in a cache file per account, /tmp/claude/statusline-usage[-<hash>].json
+// (<hash> = first 8 hex of sha256 of the config dir path, none for ~/.claude). A status
+// line may keep that file fresh. When it is missing or older than 5 minutes the script
+// fetches it: the OAuth token from the Keychain item "Claude Code-credentials[-<hash>]"
+// (macOS) or <dir>/.credentials.json, then the usage endpoint Claude Code itself uses.
+// - Only the claudeAiOauth token is taken (the same blob holds MCP server tokens) and it
+//   reaches curl on stdin, never in argv or in this script's output.
+// - An expired token is skipped: Claude Code refreshes it the next time it runs.
+// - A failed fetch writes <cache>.backoff with the wait in seconds (Retry-After on
+//   HTTP 429, else 300). Retrying inside that window keeps the token locked out.
 // Codex: the last rate_limits line of the most recently written rollout (tail, never the
 // whole file). Lines with both windows null (limit_id "premium") carry no limits and are
 // skipped, else they hide the "codex" line before them. Rollouts live under the day their session started, so a long session keeps
 // writing into an older day dir: sort the recent days' files together by mtime.
 export const SCRIPT = String.raw`export LC_ALL=C
-for d in "$HOME"/.claude-*; do
+now=$(date +%s)
+cache=/tmp/claude
+[ -n "$HERDR_LIMITS_CACHE" ] && cache=$HERDR_LIMITS_CACHE
+# GNU first: BSD stat rejects -c, but GNU stat accepts -f and would print junk.
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
+token() { # <config dir> <keychain service>: prints a valid Claude OAuth token, or nothing
+  blob=
+  if command -v security >/dev/null 2>&1; then
+    for a in "$(id -un)" "Claude Code"; do
+      blob=$(security find-generic-password -s "$2" -a "$a" -w 2>/dev/null) && [ -n "$blob" ] && break
+      blob=
+    done
+  fi
+  [ -z "$blob" ] && [ -f "$1/.credentials.json" ] && blob=$(cat "$1/.credentials.json" 2>/dev/null)
+  [ -n "$blob" ] || return 1
+  blob=$(printf %s "$blob" | tr -d '\n')
+  exp=$(printf %s "$blob" | sed -n 's/.*"claudeAiOauth"[^}]*"expiresAt"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')
+  [ -n "$exp" ] && [ "$now" -ge $(( exp / 1000 - 60 )) ] && return 1
+  t=$(printf %s "$blob" | sed -n 's/.*"claudeAiOauth"[^}]*"accessToken"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
+  case "$t" in sk-ant-oat*) printf %s "$t" ;; *) return 1 ;; esac
+}
+fetch() { # <cache file> <token>
+  r=$(printf 'header = "Authorization: Bearer %s"\n' "$2" | curl -s --max-time 5 -K - -D "$1.hdr.$$" \
+    -H "Accept: application/json" -H "anthropic-beta: oauth-2025-04-20" -A "herdr-limits-mod" \
+    https://api.anthropic.com/api/oauth/usage 2>/dev/null | tr -d '\n')
+  case "$r" in
+    '{'*'"five_hour"'*) printf '%s\n' "$r" > "$1.$$" && mv -f "$1.$$" "$1"; rm -f "$1.backoff" ;;
+    *) w=$(tr -d '\r' < "$1.hdr.$$" 2>/dev/null | awk 'tolower($1)=="retry-after:" {print $2}' | tail -1)
+       [ "$w" -gt 0 ] 2>/dev/null || w=300
+       echo "$w" > "$1.backoff" ;;
+  esac
+  rm -f "$1.hdr.$$"
+}
+for d in "$HOME"/.claude "$HOME"/.claude-*; do
   [ -f "$d/settings.json" ] && [ -d "$d/projects" ] || continue
-  h=$(printf %s "$d" | shasum -a 256 | cut -c1-8)
-  f=/tmp/claude/statusline-usage-$h.json
+  if [ "$d" = "$HOME/.claude" ]; then h=; else h=-$(printf %s "$d" | { sha256sum 2>/dev/null || shasum -a 256; } | cut -c1-8); fi
+  f=$cache/statusline-usage$h.json
+  tok=
+  if [ ! -f "$f" ] || [ $(( now - $(mtime "$f") )) -ge 300 ]; then
+    wait=0
+    if [ -f "$f.backoff" ]; then
+      wait=$(cat "$f.backoff" 2>/dev/null); [ "$wait" -gt 0 ] 2>/dev/null || wait=300
+      [ $(( now - $(mtime "$f.backoff") )) -lt "$wait" ] || wait=0
+    fi
+    if [ "$wait" = 0 ]; then
+      tok=$(token "$d" "Claude Code-credentials$h")
+      [ -n "$tok" ] && mkdir -p "$cache" && fetch "$f" "$tok"
+    fi
+  fi
+  [ "$d" = "$HOME/.claude" ] && [ ! -f "$f" ] && [ -z "$tok" ] && continue
   echo "@@claude $(basename "$d")"
-  if [ -f "$f" ]; then echo "@@mtime $(stat -f %m "$f")"; cat "$f"; echo; fi
+  if [ -f "$f" ]; then echo "@@mtime $(mtime "$f")"; cat "$f"; echo; fi
 done
 days=$(ls -d "$HOME"/.codex/sessions/*/*/* 2>/dev/null | sort -r | head -3)
 files=$(for day in $days; do for f in "$day"/rollout-*.jsonl; do [ -f "$f" ] && echo "$f"; done; done)
 [ -n "$files" ] && for f in $(ls -t $files | head -10); do
   l=$(tail -c 4000000 "$f" | grep '"rate_limits":{' | grep -v '"primary":null,"secondary":null' | tail -n 1)
-  if [ -n "$l" ]; then echo "@@codex"; echo "@@mtime $(stat -f %m "$f")"; echo "$l"; break; fi
+  if [ -n "$l" ]; then echo "@@codex"; echo "@@mtime $(mtime "$f")"; echo "$l"; break; fi
 done
 exit 0
 `;
@@ -106,7 +162,7 @@ export function parseOutput(text) {
   for (const line of (text ?? "").split("\n")) {
     if (line.startsWith("@@claude ")) {
       const dir = line.slice(9).trim();
-      cur = { kind: "claude", name: dir, label: `Claude ${dir.replace(/^\.claude-/, "").charAt(0).toUpperCase()}`, at: null, windows: [] };
+      cur = { kind: "claude", name: dir, label: `Claude ${dir.replace(/^\.claude-?/, "").charAt(0).toUpperCase()}`.trim(), at: null, windows: [] };
       claude.push(cur);
     } else if (line === "@@codex") {
       cur = { kind: "codex", at: null, windows: [], line: null };

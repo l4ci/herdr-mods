@@ -18,12 +18,18 @@ Network counts physical interfaces only (`en*` on macOS; on Linux everything exc
 
 Subscription usage for Claude accounts and Codex, as bars with a pace mark and the reset time. A click opens the usage page.
 
-This one is tied to my setup and will not work out of the box:
+Claude accounts are the config folders `~/.claude` and `~/.claude-*` that have a `settings.json` and a `projects` folder. The card label is "Claude" plus the first letter after the dash. `~/.claude` only gets a card when it has a login.
 
-- Claude accounts are the folders `~/.claude-*` that have a `settings.json` and a `projects` folder. The card label is "Claude" plus the first letter after the dash.
-- The numbers come from a cache file that your status line script has to write: `/tmp/claude/statusline-usage-<hash>.json`, where `<hash>` is the first 8 hex characters of the SHA-256 of the config folder path. The file holds `five_hour` and `seven_day` objects with `utilization` and `resets_at`.
-- Codex limits are read from the newest rollout file under `~/.codex/sessions`.
-- The script uses `stat -f` and `shasum`, so macOS only.
+No status line is needed. Every 5 minutes at most, the mod asks the usage endpoint that Claude Code itself uses (`api.anthropic.com/api/oauth/usage`). For that it reads the account's OAuth token: from the Keychain item `Claude Code-credentials` on macOS, or from `.credentials.json` in the config folder elsewhere. Read `SCRIPT` in `limits/data.js` before you install this; it is about 50 lines of shell. Things to know:
+
+- The token goes to curl on stdin and to Anthropic only. It is never printed or written to disk.
+- The endpoint is not documented and may change. After a failed request the mod waits (the server's `Retry-After`, else 5 minutes) before it tries again.
+- The mod does not refresh tokens. When a token has expired, the numbers stay old until Claude Code runs again for that account.
+- macOS may ask once whether `security` may read the Keychain item.
+
+The result is cached in `/tmp/claude/statusline-usage[-<hash>].json`, where `<hash>` is the first 8 hex characters of the SHA-256 of the config folder path. If your status line already writes that file (with `five_hour` and `seven_day` objects that hold `utilization` and `resets_at`), the mod uses it and makes no request while the file is younger than 5 minutes.
+
+Codex limits are read from the newest rollout file under `~/.codex/sessions`. No request is made for Codex.
 
 ## Install
 

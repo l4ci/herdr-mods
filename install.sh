@@ -13,6 +13,6 @@ for m in vitals limits; do
     echo "skip $m: $MODS/$m is a real folder, move it away first" >&2
     continue
   fi
-  ln -sfn "$HERE/$m" "$MODS/$m"
+  ln -sfn "$HERE/$m/mods/$m" "$MODS/$m"
   echo "linked $m"
 done

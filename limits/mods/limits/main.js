@@ -56,7 +56,7 @@ export default class Limits extends View {
       .child(div().flex_1())
       .when(Boolean(age), (el) => el.child(
         div().id(`${id}-age`).flex_none().text_size(11).text_color(stale ? t.ansi3 : t.dim).child(age)
-          .tooltip(kind === "codex" ? "When Codex last reported these limits" : "When this account's status line last refreshed these limits")));
+          .tooltip(kind === "codex" ? "When Codex last reported these limits" : "When this account's limits were last read")));
 
     const tip = (s) => {
       if (s.reset) return `${s.name}: the window has reset. New numbers come with the next response.`;

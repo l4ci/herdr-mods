@@ -2,6 +2,8 @@
 
 Two mods for the [Herdr](https://herdr.dev) desktop app. They sit together in one side panel tab in my layout.
 
+Each mod has its own folder with a `RECIPE.md`, the brief an agent can build it from, and the files under `mods/<name>/`.
+
 ## vitals
 
 One card per machine: this computer first, then every machine connected in Herdr.
@@ -20,7 +22,7 @@ Subscription usage for Claude accounts and Codex, as bars with a pace mark and t
 
 Claude accounts are the config folders `~/.claude` and `~/.claude-*` that have a `settings.json` and a `projects` folder. The card label is "Claude" plus the first letter after the dash. `~/.claude` only gets a card when it has a login.
 
-No status line is needed. Every 5 minutes at most, the mod asks the usage endpoint that Claude Code itself uses (`api.anthropic.com/api/oauth/usage`). For that it reads the account's OAuth token: from the Keychain item `Claude Code-credentials` on macOS, or from `.credentials.json` in the config folder elsewhere. Read `SCRIPT` in `limits/data.js` before you install this; it is about 50 lines of shell. Things to know:
+No status line is needed. Every 5 minutes at most, the mod asks the usage endpoint that Claude Code itself uses (`api.anthropic.com/api/oauth/usage`). For that it reads the account's OAuth token: from the Keychain item `Claude Code-credentials` on macOS, or from `.credentials.json` in the config folder elsewhere. Read `SCRIPT` in `limits/mods/limits/data.js` before you install this; it is about 50 lines of shell. Things to know:
 
 - The token goes to curl on stdin and to Anthropic only. It is never printed or written to disk.
 - The endpoint is not documented and may change. After a failed request the mod waits (the server's `Retry-After`, else 5 minutes) before it tries again.
@@ -39,7 +41,7 @@ cd herdr-mods
 ./install.sh
 ```
 
-The script links both folders into `~/.config/herdr-app/mods`. Both mods have `"place": "none"`, so they show up only where a layout names them:
+The script links `vitals/mods/vitals` and `limits/mods/limits` into `~/.config/herdr-app/mods`. Both mods have `"place": "none"`, so they show up only where a layout names them:
 
 ```json
 { "id": "vitals", "type": "column", "children": [
@@ -59,9 +61,9 @@ Herdr hot-reloads a mod when its files change, but not through a symlink. After 
 The parsers have no Herdr imports, so plain Node runs them:
 
 ```sh
-node --test vitals/tests/vitals.test.mjs limits/tests/limits.test.mjs
+node --test vitals/mods/vitals/tests/vitals.test.mjs limits/mods/limits/tests/limits.test.mjs
 ```
 
 ## License
 
-Apache-2.0. Parts of both mods are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. See the `NOTICE` file in each folder.
+Apache-2.0. Parts of both mods are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. See the `NOTICE` file in each mod folder.

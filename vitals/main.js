@@ -112,10 +112,21 @@ export default class Vitals extends View {
       .when(Boolean(OS[s.os]), (el) => el.child(
         div().flex_none().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(OS[s.os])))
       .child(div().flex_1())
-      .when(Boolean(b) && !s.offline, (el) => el.child(
-        div().id(`${id}-battery`).flex_none().text_size(11).text_color(b.pct <= 15 && !b.ac ? t.ansi1 : t.dim)
-          .child(`Battery ${b.pct}%${b.ac ? " · AC" : ""}`)
-          .tooltip(`Battery ${b.pct}%, ${b.state}${b.ac ? ", on AC power" : ""}`)));
+      .when(Boolean(b) && !s.offline, (el) => {
+        // A drawn battery: outline, fill for the level, a nub. Green on AC, red when low.
+        const low = b.pct <= 15 && !b.ac;
+        const fill = low ? t.ansi1 : b.ac ? t.ansi2 : t.muted;
+        const icon = h_flex().flex_none().items_center().gap(1)
+          .child(div().w(20).h(10).p(1).rounded(3).border_1().border_color(low ? t.ansi1 : t.dim)
+            .child(div().h_full().w(`${Math.max(8, Math.min(100, b.pct))}%`).rounded(1).bg(fill)))
+          .child(div().w(2).h(4).rounded(1).bg(low ? t.ansi1 : t.dim));
+        // The number only when it says something: not for a full battery on AC.
+        const number = !b.ac || b.pct < 100;
+        return el.child(h_flex().id(`${id}-battery`).flex_none().gap(5).items_center()
+          .when(number, (e) => e.child(div().text_size(11).text_color(low ? t.ansi1 : t.dim).child(`${b.pct}%`)))
+          .child(icon)
+          .tooltip(`Battery ${b.pct}%, ${b.state}${b.ac ? ", on AC power" : ""}`));
+      });
 
     const card = v_flex().id(id).flex_none().rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border)
       .text_color(t.foreground).opacity(s.offline ? 0.5 : 1)

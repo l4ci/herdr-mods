@@ -1,0 +1,21 @@
+@stat
+cpu  184930025 74203652 113838547 746934642 6613963 0 1993667 0 0 0
+@mem
+MemTotal:       15988544 kB
+MemAvailable:   12350372 kB
+SwapTotal:       4194300 kB
+SwapFree:         734204 kB
+@psi
+some avg10=0.00 avg60=0.00 avg300=0.00 total=894319517
+full avg10=0.00 avg60=0.00 avg300=0.00 total=534595100
+@df
+Filesystem     1024-blocks     Used Available Capacity Mounted on
+/dev/sda1         78425224 68040740   7139744      91% /
+@net
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo: 912345678  811223    0    0    0     0          0         0 912345678  811223    0    0    0     0       0          0
+  eth0: 8123756789 9123456    0   12    0     0          0         0 3123516789 7012345    0    0    0     0       0          0
+docker0: 5550000   44000    0    0    0     0          0         0 6660000   55000    0    0    0     0       0          0
+veth1a2b3c: 5550000 44000    0    0    0     0          0         0 6660000   55000    0    0    0     0       0          0
+tailscale0: 85021742 1001068    0    0    0     0          0         0 247846816  774624    0    0    0     0       0          0

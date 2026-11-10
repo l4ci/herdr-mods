@@ -1,0 +1,4 @@
+Includes code adapted from claude-status in ozcberkay/herdr-coban
+(https://github.com/ozcberkay/herdr-coban), licensed under the Apache License,
+Version 2.0: the limit-window design and helpers (data.js, main.js). Its Session
+part and status-line wrapper are not used.

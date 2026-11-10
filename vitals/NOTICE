@@ -1,0 +1,4 @@
+vitals
+Includes code adapted from machine-vitals in ozcberkay/herdr-coban
+(https://github.com/ozcberkay/herdr-coban), licensed under the Apache License,
+Version 2.0: the macOS output parsers (stats.js) and the panel design (main.js).

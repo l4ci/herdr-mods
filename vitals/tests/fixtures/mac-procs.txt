@@ -1,0 +1,6 @@
+ 89.8 suggestd
+ 22.0 WindowServer
+ 19.6 Safari
+ 17.6 Terminal
+  8.0 mds_stores
+  7.8 Herdr

@@ -1,6 +1,6 @@
 # herdr-mods
 
-Two mods for the [Herdr](https://herdr.dev) desktop app. They sit together in one side panel tab in my layout.
+Three mods for the [Herdr](https://herdr.dev) desktop app. Vitals and limits sit together in one side panel tab in my layout; spaces-plus is my left sidebar.
 
 Each mod has its own folder with a `RECIPE.md`, the brief an agent can build it from, and the files under `mods/<name>/`.
 
@@ -37,6 +37,16 @@ The result is cached in `/tmp/claude/statusline-usage[-<hash>].json`, where `<ha
 
 Codex limits are read from the newest rollout file under `~/.codex/sessions`. No request is made for Codex.
 
+## spaces-plus
+
+<img src="spaces-plus/preview.png" width="268" alt="Sidebar with devices, spaces and the agents of each space">
+
+One sidebar in place of Herdr's two lists (spaces and agents). Devices hold spaces, and each space shows its agents right under it: pinned first, then blocked, done, working, idle. Spaces keep the order you drag them into.
+
+Spaces and devices fold. A folded one shows how many agents are inside and a dot in the color of the most urgent one. A space with no agents says "no agents"; a click there opens a terminal tab in that space. Hover an agent to pin or unpin it. `agent.next` and `agent.prev` follow the list. In the narrow rail each space number gets a dot when an agent inside needs a look.
+
+It is a clone of Herdr's shipped `spaces` mod with the agent rows of the shipped `agents` mod ported in, so dragging, worktree nesting, git info and device reconnect work as before.
+
 ## Install
 
 ```sh
@@ -45,13 +55,19 @@ cd herdr-mods
 ./install.sh
 ```
 
-The script links `vitals/mods/vitals` and `limits/mods/limits` into `~/.config/herdr-app/mods`. Both mods have `"place": "none"`, so they show up only where a layout names them:
+The script links `vitals/mods/vitals`, `limits/mods/limits` and `spaces-plus/mods/spaces-plus` into `~/.config/herdr-app/mods`. All three have `"place": "none"`, so they show up only where a layout names them:
 
 ```json
 { "id": "vitals", "type": "column", "children": [
   { "id": "vitals-machines", "type": "block", "size": { "weight": 1 }, "content": { "mod": "vitals" } },
   { "id": "limits", "type": "block", "size": { "px": 260 }, "content": { "mod": "limits" } }
 ] }
+```
+
+For spaces-plus, replace the sidebar's spaces and agents blocks (in the shipped `main` layout, the `sidebar-lists` column) with:
+
+```json
+{ "id": "sidebar-list", "type": "block", "content": { "mod": "spaces-plus" }, "size": { "weight": 1 }, "min": 90 }
 ```
 
 ## Editing
@@ -62,12 +78,12 @@ Herdr hot-reloads a mod when its files change, but not through a symlink. After 
 
 ## Tests
 
-The parsers have no Herdr imports, so plain Node runs them:
+The parsers and the agent ordering have no Herdr imports, so plain Node runs them:
 
 ```sh
-node --test vitals/mods/vitals/tests/vitals.test.mjs limits/mods/limits/tests/limits.test.mjs
+node --test vitals/mods/vitals/tests/vitals.test.mjs limits/mods/limits/tests/limits.test.mjs spaces-plus/mods/spaces-plus/tests/order.test.mjs
 ```
 
 ## License
 
-Apache-2.0. Parts of both mods are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. See the `NOTICE` file in each mod folder.
+Apache-2.0. Parts of vitals and limits are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. spaces-plus is adapted from the spaces and agents mods shipped with Herdr, also Apache-2.0. See the `NOTICE` file in each mod folder.

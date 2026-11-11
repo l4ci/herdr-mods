@@ -680,6 +680,11 @@ export default class Spaces extends View {
       .when(Boolean(s.status), (el) => el.child(div().size(7).rounded(4).flex_none().bg(t[s.status] ?? t.dim)));
   }
 
+  toggleSpace(id) {
+    this.spaceFolds.has(id) ? this.spaceFolds.delete(id) : this.spaceFolds.add(id);
+    localStorage.setItem("spaces.folded", JSON.stringify([...this.spaceFolds]));
+  }
+
   // The space's fold chevron. A press that starts on it folds, and isn't a select
   // or a drag. A drag that ends on it is the row's: it moves the space there.
   spaceFold(w, folded, t) {
@@ -692,8 +697,7 @@ export default class Spaces extends View {
         this.foldPress = null;
         if (!mine) return;
         cx.stop_propagation();
-        folded ? this.spaceFolds.delete(w.id) : this.spaceFolds.add(w.id);
-        localStorage.setItem("spaces.folded", JSON.stringify([...this.spaceFolds]));
+        this.toggleSpace(w.id);
         cx.notify();
       })
       .when(Boolean(sum), (el) => el.child(sum))
@@ -734,7 +738,7 @@ export default class Spaces extends View {
           cx.notify();
         }
       })
-      .on_mouse_up("left", (_e, cx) => {
+      .on_mouse_up("left", (e, cx) => {
         const from = this.pressed;
         const over = this.over;
         this.pressed = null;
@@ -742,7 +746,11 @@ export default class Spaces extends View {
         if (from !== null && over === w.id && from !== w.id) {
           const index = spaces().findIndex(s => s.id === w.id);
           if (index !== -1) run("space.move", { id: from, index: index + 1 });
-        } else if (from === w.id) run("space.select", { id: w.id });
+        } else if (from === w.id) {
+          // A double-click folds or opens the space; the first click already selected it.
+          if (e.click_count === 2) this.toggleSpace(w.id);
+          else run("space.select", { id: w.id });
+        }
         cx.notify();
       })
       .on_mouse_down("right", () => this.menu(w))

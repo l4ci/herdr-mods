@@ -29,7 +29,7 @@ Narrow rail (sidebar under 160px): one 32px cell per space with its number, and 
 - A done agent turns idle once someone looks at it, and moves down with the idle ones.
 - Hovering an agent row swaps its time for a pin button (`pin.svg`, "Pin to the top"; `pin-off.svg`, "Unpin"). Pinned means first in its own space. There is no mark on a pinned agent at rest.
 - Click an agent: its pane gets focus. Click a sub-agent: its pane, or a peek when it has none.
-- Click a space: select it. Drag a space onto another of the same device: move it there. Right-click a space: the space menu. Click its chevron: fold or unfold (does not select).
+- Click a space: select it. Drag a space onto another of the same device: move it there. Right-click a space: the space menu. Click its chevron: fold or unfold (does not select). Double-click the space: fold or unfold.
 - Hover "no agents": "+ terminal" shows. Click: a new tab with a terminal in that space, in the folder its first terminal is in now. On a device that is loading or unavailable the row does nothing.
 - `agent.next` / `agent.prev` walk the agents in the order of the list, folded ones included.
 - Folds are kept across restarts.

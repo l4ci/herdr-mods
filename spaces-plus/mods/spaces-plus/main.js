@@ -7,7 +7,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, machines, panes, agents, terminals, focused, run, openOverlay, exec, hc, theme, shared, setShared, setAgentOrder, watchFolder, window, layout } from "herdr";
-import { RANK, kidStatus, topLevel, sortAgents, bySpace, summary, navOrder } from "./order.js";
+import { RANK, kidStatus, topLevel, sortAgents, bySpace, summary, navOrder, byDevice } from "./order.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -547,7 +547,8 @@ export default class Spaces extends View {
 
   // The rows, under a header per machine once one isn't this computer.
   grouped(t, collapsed) {
-    const rows = this.inOrder = this.ordered();
+    const rows = this.ordered();
+    this.inOrder = rows;
     // A space's agents with its worktree spaces' (they follow it as `tree` rows):
     // what its fold and its rail tile speak for.
     this.family = new Map();
@@ -584,7 +585,9 @@ export default class Spaces extends View {
     const loadingRow = m => h_flex().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(collapsed ? 0 : 8).items_center().when(collapsed, el => el.justify_center()).text_size(12).text_color(t.dim).child(collapsed ? "…" : "Loading…");
     if (!remote.length) return loading(null) && !rows.length ? [loadingRow(null)] : unfolded(rows).map(draw);
     const machineNames = [null, ...remote];
-    return machineNames.flatMap((m) => {
+    // The devices whose spaces are drawn, in drawn order: agent.next follows them.
+    const drawn = [];
+    const out = machineNames.flatMap((m) => {
       const mine = rows.filter((r) => (r.w.machine ?? null) === m);
       const repair = this.reconnecting[m];
       const machine = this.machines.find(k => k.name === m) ?? repair?.machine;
@@ -628,6 +631,7 @@ export default class Spaces extends View {
             .child(svg("mods/workspace-chrome/plus.svg").size(10))))
         .when(!collapsed, el => el.child(svg("mods/workspace-chrome/plus.svg").size(12)).child("New space there"));
       if (!collapsed && rebuilt) return [head];
+      drawn.push(m);
       const cell = collapsed ? railCell : (el) => el;
       const guidance = !collapsed && login ? [v_flex().px(8).pb(6).gap(3).flex_none()
         .child(div().text_size(11).text_color(t.blocked).child("needs a login: run"))
@@ -639,6 +643,8 @@ export default class Spaces extends View {
             .child(this.copiedLogin === login ? "Copied" : "Copy")))] : [];
       return [cell(head), ...guidance, ...(folded ? [] : mine.length ? unfolded(mine).map(draw) : [loading(m) ? loadingRow(m) : cell(empty)])];
     });
+    this.inOrder = byDevice(rows, drawn);
+    return out;
   }
 
   // Only what's unusual, after the name: "herdr \u00b7 spike \u21912 \u21931". The repo or
@@ -672,13 +678,17 @@ export default class Spaces extends View {
       .when(Boolean(s.status), (el) => el.child(div().size(7).rounded(4).flex_none().bg(t[s.status] ?? t.dim)));
   }
 
-  // The space's fold chevron. It keeps its presses: a fold isn't a select or a drag.
+  // The space's fold chevron. A press that starts on it folds, and isn't a select
+  // or a drag. A drag that ends on it is the row's: it moves the space there.
   spaceFold(w, folded, t) {
     const sum = folded ? this.foldSummary(this.family.get(w.id) ?? [], t) : null;
     return h_flex().id(`space-fold-${w.id}`).flex_none().h(18).px(3).gap(5).items_center().rounded(4)
       .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_mouse_down("left", (_e, cx) => { this.foldPress = w.id; cx.stop_propagation(); })
       .on_mouse_up("left", (_e, cx) => {
+        const mine = this.foldPress === w.id && this.pressed === null;
+        this.foldPress = null;
+        if (!mine) return;
         cx.stop_propagation();
         folded ? this.spaceFolds.delete(w.id) : this.spaceFolds.add(w.id);
         localStorage.setItem("spaces.folded", JSON.stringify([...this.spaceFolds]));
@@ -740,7 +750,7 @@ export default class Spaces extends View {
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).text_color(t.dim)))
           .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
-          .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
+          .child(div().flex_shrink(1).min_w(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
           .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1())
           .child(this.spaceFold(w, folded, t)),
       );
@@ -792,7 +802,7 @@ export default class Spaces extends View {
         .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
           .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
       .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pb(14).overflow_y_scrollbar().mode("always")
-        .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
+        .on_mouse_up("left", (_e, cx) => { this.pressed = null; this.foldPress = null; cx.notify(); })
         .children(list))
       .when(collapsed, (el) => el.child(h_flex().h(28).flex_none().items_center().justify_center()
         .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child("»"))));

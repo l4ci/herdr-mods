@@ -42,3 +42,9 @@ export function summary(list, rankOf) {
 export function navOrder(groups) {
   return groups.flat().map((a) => a.address);
 }
+
+// Space rows in the order the list draws them: by device (this computer first),
+// keeping the order inside each. Devices not in `names` are left out.
+export function byDevice(rows, names) {
+  return names.flatMap((m) => rows.filter((r) => (r.w.machine ?? null) === m));
+}

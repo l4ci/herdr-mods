@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RANK, kidStatus, topLevel, sortAgents, bySpace, summary, navOrder } from "../order.js";
+import { RANK, kidStatus, topLevel, sortAgents, bySpace, summary, navOrder, byDevice } from "../order.js";
 
 const ag = (address, status, o = {}) => ({ address, status, seq: 0, pinned: false, space: "s1", ...o });
 const rank = (a) => RANK[a.status] ?? 0;
@@ -59,4 +59,10 @@ test("summary: count and most urgent status", () => {
 
 test("navOrder: groups in sidebar order", () => {
   assert.deepEqual(navOrder([[ag("a", "idle")], [], [ag("b", "idle"), ag("c", "idle")]]), ["a", "b", "c"]);
+});
+
+test("byDevice: rows in the drawn device order, undrawn devices left out", () => {
+  const r = (id, machine) => ({ w: { id, machine } });
+  const rows = [r("v1", "vps"), r("l1", null), r("a1", "adam"), r("l2", undefined), r("x1", "gone")];
+  assert.deepEqual(byDevice(rows, [null, "adam", "vps"]).map(x => x.w.id), ["l1", "l2", "a1", "v1"]);
 });

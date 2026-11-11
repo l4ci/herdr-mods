@@ -20,7 +20,7 @@ Status marks: working is `spinner.svg` turning once every 900ms in `working`; bl
 
 Folded space: its agent rows and its worktree spaces are hidden. Left of the chevron: the number of agents (its own and its worktree spaces') in 11px `dim`, then a 7px dot in the most urgent status color. Folded device: the same over all its spaces, left of the connection dot.
 
-Narrow rail (sidebar under 160px): one 32px cell per space with its number, and a 6px dot at its top-right when an agent inside is blocked, done or working. A `»` at the bottom widens the sidebar again.
+Narrow rail (sidebar under 160px): one 32px cell per space with its 18px tile (a worktree space: its branch icon), the space name as tooltip, and an 8px dot with a 1px `chrome` ring at the tile's top-right corner when an agent inside is blocked, done or working. A `»` at the bottom widens the sidebar again.
 
 ## How it behaves
 
@@ -63,4 +63,4 @@ Narrow rail (sidebar under 160px): one 32px cell per space with its number, and 
 - Folding a space hides its agents and shows the count and dot; the fold survives a reload.
 - A click on "no agents" opens a terminal tab in that space's folder.
 - Dragging a space still reorders it, worktree spaces still nest, a remote device still folds and shows its reconnect and login rows.
-- In the rail, space numbers carry status dots and `»` widens the sidebar.
+- In the rail, space tiles carry status dots and `»` widens the sidebar.

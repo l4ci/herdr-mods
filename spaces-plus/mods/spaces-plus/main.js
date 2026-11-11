@@ -704,12 +704,17 @@ export default class Spaces extends View {
       .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none());
   }
 
+  // A space's 18px tile: its first letter on its stored color.
+  tile(w, t) {
+    const color = (shared("space.colors") ?? {})[w.id] ?? "ansi6";
+    const fill = color.startsWith("#") ? color : (MARK[color] ?? t[color]);
+    return h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center()
+      .text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?");
+  }
+
   row({ w, i, g, tree }, t, folded = false, joined = false) {
     const on = w.active;
     const fromIndex = this.pressed === null ? -1 : spaces().findIndex(s => s.id === this.pressed);
-    const colors = shared("space.colors") ?? {};
-    const color = colors[w.id] ?? "ansi6";
-    const fill = color.startsWith("#") ? color : (MARK[color] ?? t[color]);
     return v_flex()
       .relative()
       .id(`space-${w.id}`)
@@ -759,16 +764,16 @@ export default class Spaces extends View {
           .gap(9)
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).text_color(t.dim)))
-          .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
+          .when(!tree, el => el.child(this.tile(w, t)))
           .child(div().flex_shrink(1).min_w(0).max_w(150).truncate().text_color(on ? t.foreground : t.muted).child(w.name))
           .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1())
           .child(this.spaceFold(w, folded, t)),
       );
   }
 
-  // In the rail a space is its number, with a dot when one of its agents (or its
-  // worktree spaces') is past idle.
-  compact({ w, i }, t) {
+  // In the rail a space is its tile (a worktree space its branch icon), with a dot
+  // at the tile's corner when one of its agents (or its worktree spaces') is past idle.
+  compact({ w, tree }, t) {
     const s = summary(this.family.get(w.id) ?? [], (a) => this.urgency.get(a.address));
     const dot = s?.status && s.status !== "idle" ? s.status : null;
     return railCell(h_flex()
@@ -782,8 +787,11 @@ export default class Spaces extends View {
       .when(w.active, (el) => el.bg(t.selected))
       .when(!w.active, (el) => el.hover((s) => s.bg(t.hover)))
       .on_click(() => run("space.select", { id: w.id }))
-      .child(div().text_color(w.active ? t.foreground : t.muted).child(String(i + 1)))
-      .when(Boolean(dot), (el) => el.child(div().absolute().top(3).right(3).size(6).rounded(3).bg(t[dot]))));
+      .tooltip(w.name)
+      .child(div().relative().flex_none()
+        .child(tree ? svg("mods/workspace-chrome/branch.svg").size(15).text_color(t.dim) : this.tile(w, t))
+        .when(Boolean(dot), (el) => el.child(div().absolute().top(-3).right(-3).size(8).rounded(4)
+          .border_1().border_color(t.chrome).bg(t[dot])))));
   }
 
   render() {

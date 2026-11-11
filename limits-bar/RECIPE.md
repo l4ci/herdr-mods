@@ -1,6 +1,6 @@
 # Limits bar
 
-The Limits mod as one line in Herdr's bottom status bar: each Claude account and Codex with a small bar and the percent used per window. The details are in a tooltip. It reads the same data as Limits, so both can be shown at once.
+The Limits mod as one line in Herdr's bottom status bar: each Claude account and Codex with the percent used per window, white while fine, then orange and red. The details are in a tooltip. It reads the same data as Limits, so both can be shown at once.
 
 ![Limits bar](preview.png)
 
@@ -12,7 +12,7 @@ Each item, 22px high, `px 6`, `rounded 5`, `hover` background on hover:
 
 - The program icon, 12px (`icons/claude.svg` or `icons/codex.svg`).
 - The name ("Claude P", "Codex") in `muted`; in `ansi3` when the numbers are older than an hour.
-- Per window ("5h", "7d"): the label in `dim`, a 36×4px bar (`border` track, fill in the window's tone color, a 1.5px pace mark at 55% opacity), and the percent in the tone color (`foreground` while the tone is `accent`).
+- Per window ("5h", "7d"): the label in `dim` and the percent: `foreground` (white) while fine, `ansi3` (orange) from 70% used or a pace of 85% by the reset, `ansi1` (red) from 90% used or a pace past 100%, `dim` right after a reset.
 - "no data" or "cannot read" in `dim` when there are no windows.
 
 ## How it behaves
@@ -23,13 +23,13 @@ Each item, 22px high, `px 6`, `rounded 5`, `hover` background on hover:
 
 ## Built from
 
-- Layout: the status block becomes a row: `{ "id": "status", "type": "row", "size": { "px": 28 }, "children": [ { "id": "status-main", "type": "block", "content": { "mod": "workspace-status" }, "size": { "weight": 1 } }, { "id": "limits-bar", "type": "block", "content": { "mod": "limits-bar" }, "size": { "px": 580 } } ] }`.
+- Layout: the status block becomes a row: `{ "id": "status", "type": "row", "size": { "px": 28 }, "children": [ { "id": "status-main", "type": "block", "content": { "mod": "workspace-status" }, "size": { "weight": 1 } }, { "id": "limits-bar", "type": "block", "content": { "mod": "limits-bar" }, "size": { "px": 420 } } ] }`.
 - `mods/limits-bar/data.js` is the same file as `limits/mods/limits/data.js` (the shell script, the parsers and the window maths; its tests are in `limits/`). `main.js` is the Limits view redrawn as a row.
 - Runs `sh -c SCRIPT` (see the Limits section of the README for what it reads and when it reaches the network) and `open <url>`.
 
 ## Watch out
 
-- The block has a fixed width. 580px fits three sources with one window each; more accounts or 5h windows need more. Too narrow, the first items are cut off on the left.
+- The block has a fixed width. 420px fits three sources with one window each; more accounts or 5h windows need more. Too narrow, the first items are cut off on the left.
 - With Limits also shown, both mods run the script every 30 seconds. The script's 5-minute cache and backoff keep the network requests the same.
 - Keep `data.js` in step with the Limits copy.
 

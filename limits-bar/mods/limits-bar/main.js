@@ -1,8 +1,9 @@
 // Subscription usage for each Claude account and Codex as one line in the status bar:
-// per source its icon, name and, per window, a small bar with the percent used. The
-// details (reset time, pace, age) are in the tooltip. A copy of the Limits mod's view;
-// data.js is the same file as limits/mods/limits/data.js. Bar design (pace mark, colors)
-// from ozcberkay/herdr-coban claude-status, Apache-2.0.
+// per source its icon, name and, per window, the percent used: white, then orange
+// (ansi3) and red (ansi1) as it nears the limit. The details (reset time, pace, age)
+// are in the tooltip. A copy of the Limits mod's view;
+// data.js is the same file as limits/mods/limits/data.js. Colors from
+// ozcberkay/herdr-coban claude-status, Apache-2.0.
 import { View, div, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, theme } from "herdr";
@@ -68,15 +69,9 @@ export default class LimitsBar extends View {
     const color = (s) => t[tone(s)];
     const windows = (src?.windows ?? []).map((w) => windowState(w, now));
     const stale = isStale(src?.at, now);
-    const bar = (s) =>
-      div().w(36).h(4).flex_none().rounded(2).bg(t.border).relative()
-        .child(div().h_full().w(`${Math.max(0, Math.min(100, s.used))}%`).rounded(2).bg(color(s)))
-        .when(s.passed !== null, (el) => el.child(
-          div().absolute().top(-2).h(8).w(1.5).rounded(1).bg(t.foreground).opacity(0.55).left(`${s.passed * 100}%`)));
     const win = (s) =>
       h_flex().gap(5).items_center().flex_none()
         .child(div().text_color(t.dim).child(s.label))
-        .child(bar(s))
         .child(div().text_color(s.reset ? t.dim : color(s) === t.accent ? t.foreground : color(s)).child(`${Math.round(s.used)}%`));
     return h_flex().id(id).flex_none().gap(7).items_center().px(6).h(22).rounded(5).cursor_pointer()
       .hover((s) => s.bg(t.hover))

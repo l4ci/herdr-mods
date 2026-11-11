@@ -51,7 +51,7 @@ It is a clone of Herdr's shipped `spaces` mod with the agent rows of the shipped
 
 <img src="limits-bar/preview.png" alt="Status bar with Claude and Codex limits">
 
-The limits as one line in the bottom status bar: per Claude account and Codex the icon, the name and, per window, a small bar with the percent used. Hover for reset times and pace, click for the usage page. It reads the same data as limits (same script, same cache), so you can show both.
+The limits as one line in the bottom status bar: per Claude account and Codex the icon, the name and, per window, the percent used (white, then orange, then red). Hover for reset times and pace, click for the usage page. It reads the same data as limits (same script, same cache), so you can show both.
 
 ## tabs-bar-rightclick
 
@@ -87,7 +87,7 @@ For limits-bar, make the status block a row with the status and the bar:
 ```json
 { "id": "status", "type": "row", "size": { "px": 28 }, "children": [
   { "id": "status-main", "type": "block", "content": { "mod": "workspace-status" }, "size": { "weight": 1 } },
-  { "id": "limits-bar", "type": "block", "content": { "mod": "limits-bar" }, "size": { "px": 580 } }
+  { "id": "limits-bar", "type": "block", "content": { "mod": "limits-bar" }, "size": { "px": 420 } }
 ] }
 ```
 

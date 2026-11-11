@@ -116,6 +116,8 @@ export default class Spaces extends View {
     if (!this.pendingPins.length) localStorage.removeItem("pins");
     this.migratingPins = new Set();
     this.agentFolds = new Set(); // parents whose sub-agents are folded
+    this.spaceFolds = new Set(JSON.parse(localStorage.getItem("spaces.folded") ?? "[]"));
+    this.family = new Map(); // space id -> its agents and its worktree spaces' agents
     this.hovered = null; // the agent or "no agents" row under the pointer
     this.groups = new Map(); // space id -> its agents, sorted
     this.urgency = new Map(); // agent address -> rank, its sub-agents included
@@ -546,9 +548,33 @@ export default class Spaces extends View {
   // The rows, under a header per machine once one isn't this computer.
   grouped(t, collapsed) {
     const rows = this.inOrder = this.ordered();
+    // A space's agents with its worktree spaces' (they follow it as `tree` rows):
+    // what its fold and its rail tile speak for.
+    this.family = new Map();
+    let main = null;
+    for (const r of rows) {
+      if (!r.tree) { main = r.w.id; this.family.set(main, []); }
+      const mine = this.groups.get(r.w.id) ?? [];
+      if (main) this.family.get(main).push(...mine);
+      if (r.tree) this.family.set(r.w.id, mine);
+    }
+    // A folded space hides its agents and its worktree spaces.
+    const unfolded = (list) => {
+      if (collapsed) return list;
+      let hidden = false;
+      return list.filter((r) => {
+        if (!r.tree) hidden = this.spaceFolds.has(r.w.id);
+        return !r.tree || !hidden;
+      });
+    };
     // Wide: a space and its agents as one block, 12px from the space above.
-    const draw = (r, n) => (collapsed ? this.compact(r, t)
-      : v_flex().flex_none().when(n > 0, (el) => el.mt(12)).child(this.row(r, t)).children(this.agentRows(r.w, t)));
+    const draw = (r, n) => {
+      if (collapsed) return this.compact(r, t);
+      const folded = this.spaceFolds.has(r.w.id);
+      return v_flex().flex_none().when(n > 0, (el) => el.mt(12))
+        .child(this.row(r, t, folded))
+        .children(folded ? [] : this.agentRows(r.w, t));
+    };
     const remote = [...new Set([...rows.map(r => r.w.machine).filter(Boolean), ...this.machines.map(m => m.name), ...Object.keys(this.reconnecting)])].sort();
     const loading = m => {
       const layout = machines().find(k => k.name === m)?.layout;
@@ -556,7 +582,7 @@ export default class Spaces extends View {
         || spaces().some(s => (s.machine ?? null) === m && !this.shown.has(s.id));
     };
     const loadingRow = m => h_flex().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(collapsed ? 0 : 8).items_center().when(collapsed, el => el.justify_center()).text_size(12).text_color(t.dim).child(collapsed ? "…" : "Loading…");
-    if (!remote.length) return loading(null) && !rows.length ? [loadingRow(null)] : rows.map(draw);
+    if (!remote.length) return loading(null) && !rows.length ? [loadingRow(null)] : unfolded(rows).map(draw);
     const machineNames = [null, ...remote];
     return machineNames.flatMap((m) => {
       const mine = rows.filter((r) => (r.w.machine ?? null) === m);
@@ -591,6 +617,7 @@ export default class Spaces extends View {
               .child(repair?.busy ? "Connecting…" : "Connect"))))
           .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(4).hover(s => s.bg(t.hover).text_color(t.foreground))
             .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", { machine: m ?? "" }); }).child("+")))
+          .when(folded, el => { const sum = this.foldSummary(mine.flatMap(r => this.groups.get(r.w.id) ?? []), t); return sum ? el.child(sum) : el; })
           .child(div().size(6).rounded(3).flex_none().bg(connected ? t.ansi2 : t.dim))
           .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none()));
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(collapsed ? 0 : 8).gap(7).items_center().rounded(7)
@@ -610,7 +637,7 @@ export default class Spaces extends View {
             .text_size(11).text_color(t.foreground).bg(t.raised).cursor_pointer().hover(s => s.bg(t.hover))
             .on_click((_e, cx) => { cx.stop_propagation(); cx.write_to_clipboard(login); this.copiedLogin = login; cx.notify(); })
             .child(this.copiedLogin === login ? "Copied" : "Copy")))] : [];
-      return [cell(head), ...guidance, ...(folded ? [] : mine.length ? mine.map(draw) : [loading(m) ? loadingRow(m) : cell(empty)])];
+      return [cell(head), ...guidance, ...(folded ? [] : mine.length ? unfolded(mine).map(draw) : [loading(m) ? loadingRow(m) : cell(empty)])];
     });
   }
 
@@ -636,7 +663,32 @@ export default class Spaces extends View {
       .when(g.behind > 0, (el) => el.child(div().flex_none().text_color(t.ansi1).child(`\u2193${g.behind}`)));
   }
 
-  row({ w, i, g, tree }, t) {
+  // Folded: how many agents wait inside, and a dot in the most urgent one's color.
+  foldSummary(list, t) {
+    const s = summary(list, (a) => this.urgency.get(a.address));
+    if (!s) return null;
+    return h_flex().flex_none().gap(4).items_center().text_size(11).text_color(t.dim)
+      .child(String(s.count))
+      .when(Boolean(s.status), (el) => el.child(div().size(7).rounded(4).flex_none().bg(t[s.status] ?? t.dim)));
+  }
+
+  // The space's fold chevron. It keeps its presses: a fold isn't a select or a drag.
+  spaceFold(w, folded, t) {
+    const sum = folded ? this.foldSummary(this.family.get(w.id) ?? [], t) : null;
+    return h_flex().id(`space-fold-${w.id}`).flex_none().h(18).px(3).gap(5).items_center().rounded(4)
+      .text_color(t.dim).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_mouse_up("left", (_e, cx) => {
+        cx.stop_propagation();
+        folded ? this.spaceFolds.delete(w.id) : this.spaceFolds.add(w.id);
+        localStorage.setItem("spaces.folded", JSON.stringify([...this.spaceFolds]));
+        cx.notify();
+      })
+      .when(Boolean(sum), (el) => el.child(sum))
+      .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none());
+  }
+
+  row({ w, i, g, tree }, t, folded = false) {
     const on = w.active;
     const fromIndex = this.pressed === null ? -1 : spaces().findIndex(s => s.id === this.pressed);
     const colors = shared("space.colors") ?? {};
@@ -689,7 +741,8 @@ export default class Spaces extends View {
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).text_color(t.dim)))
           .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
           .child(div().flex_shrink(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
-          .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1()),
+          .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1())
+          .child(this.spaceFold(w, folded, t)),
       );
   }
 

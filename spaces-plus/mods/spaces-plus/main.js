@@ -251,7 +251,7 @@ export default class Spaces extends View {
       .when(!open, (el) => el.child(String(subs.length)));
   }
 
-  agentRow(a, subs, t) {
+  agentRow(a, subs, t, joined = false) {
     const pic = icon(a.program, 14, t.foreground);
     const when = this.since(a);
     const idle = a.status === "idle" && !a.focused;
@@ -266,7 +266,7 @@ export default class Spaces extends View {
         cx.notify();
       })
       .child(svg(`mods/workspace-chrome/${a.pinned ? "pin-off" : "pin"}.svg`).size(13));
-    return h_flex().id(`ag-${a.address}`).pl(8 + AGENT_INDENT).pr(8).h(30).flex_none().rounded(8).items_center().gap(9)
+    return h_flex().id(`ag-${a.address}`).pl(8 + AGENT_INDENT).pr(8).h(30).flex_none().when(!joined, (el) => el.rounded(8)).when(joined, (el) => el.rounded_b(8)).items_center().gap(9)
       .when(a.focused, (el) => el.bg(t.selected))
       .cursor_pointer().hover((s) => s.bg(t.hover))
       .on_hover(this.hoverFor(a.address))
@@ -314,12 +314,12 @@ export default class Spaces extends View {
   }
 
   // A space's agents, each followed by its sub-agents unless folded; or "no agents".
-  agentRows(w, t) {
+  agentRows(w, t, joined = false) {
     const list = this.groups.get(w.id) ?? [];
     if (!list.length) return [this.noAgents(w, t)];
-    return list.flatMap((a) => {
+    return list.flatMap((a, n) => {
       const subs = this.tree(this.all, a.address);
-      const r = this.agentRow(a, subs, t);
+      const r = this.agentRow(a, subs, t, joined && n === 0);
       return this.agentFolds.has(a.address) ? [r] : [r, ...subs.map((s) => this.subRow(t, s))];
     });
   }
@@ -572,9 +572,11 @@ export default class Spaces extends View {
     const draw = (r, n) => {
       if (collapsed) return this.compact(r, t);
       const folded = this.spaceFolds.has(r.w.id);
+      // The active space and its focused first agent read as one selected block.
+      const joined = !folded && r.w.active && Boolean(this.groups.get(r.w.id)?.[0]?.focused);
       return v_flex().flex_none().when(n > 0, (el) => el.mt(12))
-        .child(this.row(r, t, folded))
-        .children(folded ? [] : this.agentRows(r.w, t));
+        .child(this.row(r, t, folded, joined))
+        .children(folded ? [] : this.agentRows(r.w, t, joined));
     };
     const remote = [...new Set([...rows.map(r => r.w.machine).filter(Boolean), ...this.machines.map(m => m.name), ...Object.keys(this.reconnecting)])].sort();
     const loading = m => {
@@ -698,7 +700,7 @@ export default class Spaces extends View {
       .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none());
   }
 
-  row({ w, i, g, tree }, t, folded = false) {
+  row({ w, i, g, tree }, t, folded = false, joined = false) {
     const on = w.active;
     const fromIndex = this.pressed === null ? -1 : spaces().findIndex(s => s.id === this.pressed);
     const colors = shared("space.colors") ?? {};
@@ -711,7 +713,7 @@ export default class Spaces extends View {
       .h(rowHeight({ tree }))
       .flex_none()
       .justify_center()
-      .rounded(8)
+      .when(!joined, (el) => el.rounded(8)).when(joined, (el) => el.rounded_t(8))
       .when(on, (el) => el.bg(t.selected))
       .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
       .when(this.pressed === w.id && this.over !== w.id, (el) => el.opacity(0.5))

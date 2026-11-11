@@ -33,6 +33,7 @@ Narrow rail (sidebar under 160px): one 32px cell per space with its number, and 
 - Hover "no agents": "+ terminal" shows. Click: a new tab with a terminal in that space, in the folder its first terminal is in now. On a device that is loading or unavailable the row does nothing.
 - `agent.next` / `agent.prev` walk the agents in the order of the list, folded ones included.
 - Folds are kept across restarts.
+- When the active space's first agent has focus, the two `selected` rows join: the space keeps only its top corners, the agent only its bottom ones.
 
 ## Built from
 

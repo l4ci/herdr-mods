@@ -27,7 +27,7 @@ function toggleSidebar() {
   if (!narrow()) setShared("sidebar.width", width);
   // Mods edited before the rail went by width still read the flag.
   setShared("sidebar.collapsed", !narrow());
-  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 268) : window()?.platform === "macos" ? 76 : 44 });
+  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 268) : RAIL_PX });
 }
 
 // Where a space is now: its first terminal's live folder, else where it was made.
@@ -38,6 +38,9 @@ function place(s, ps) {
 }
 const rowHeight = ({ tree }) => (tree ? 28 : 30);
 const RAIL_CELL = 32;
+// The rail: one tile cell and 12px each side. Herdr's own sidebar toggle (workspace-chrome)
+// narrows to 76 on macOS, for the window buttons; the tab bar pads for those already.
+const RAIL_PX = 56;
 const railCell = (el) => h_flex().flex_none().justify_center().child(el);
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
@@ -809,6 +812,9 @@ export default class Spaces extends View {
       changed = true;
     }
     if (changed) setShared("space.colors", kept);
+    // Narrowed by another mod's toggle to its own rail width: take ours.
+    const px = find(layout(), "sidebar")?.size?.px;
+    if (collapsed && px !== RAIL_PX) run("layout.resize", { id: "sidebar", px: RAIL_PX });
     this.readAgents();
     const list = this.grouped(t, collapsed);
     // agent.next and agent.prev walk the agents top to bottom, folded ones too.

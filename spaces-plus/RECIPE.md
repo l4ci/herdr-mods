@@ -20,7 +20,7 @@ Status marks: working is `spinner.svg` turning once every 900ms in `working`; bl
 
 Folded space: its agent rows and its worktree spaces are hidden. Left of the chevron: the number of agents (its own and its worktree spaces') in 11px `dim`, then a 7px dot in the most urgent status color. Folded device: the same over all its spaces, left of the connection dot.
 
-Narrow rail (sidebar under 160px): one 32px cell per space with its 18px tile (a worktree space: its branch icon), the space name as tooltip, and an 8px dot with a 1px `chrome` ring at the tile's top-right corner when an agent inside is blocked, done or working. A `»` at the bottom widens the sidebar again.
+Narrow rail (sidebar under 160px, kept at 56px): one 32px cell per space with its 18px tile (a worktree space: its branch icon), the space name as tooltip, and an 8px dot with a 1px `chrome` ring at the tile's top-right corner when an agent inside is blocked, done or working. A `»` at the bottom widens the sidebar again.
 
 ## How it behaves
 
@@ -51,6 +51,7 @@ Narrow rail (sidebar under 160px): one 32px cell per space with its 18px tile (a
 - The mod's localStorage lives in memory while the app runs; editing `data/spaces-plus/store.json` by hand only sticks while no copy of the mod is open.
 - The "3m" ages start fresh the first time, because the agents mod's timestamps are in that mod's storage.
 - Font weight does nothing with the Geist that ships with Herdr (0.1.15): 100 to 900 render alike. Emphasis is color, not bold.
+- Herdr's `workspace-chrome` toggle narrows the sidebar to 76px on macOS (room for the window buttons). The mod resizes any rail width to 56px; the tab bar already pads its left edge for the window buttons.
 - If another mod in the layout also calls `setAgentOrder` (the shipped `agents` mod), the last one to draw wins.
 
 ## Done when

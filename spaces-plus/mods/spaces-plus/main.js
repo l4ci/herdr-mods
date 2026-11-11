@@ -611,7 +611,7 @@ export default class Spaces extends View {
         })
         .when(!collapsed, el => el.child(icon))
         .when(collapsed, el => el.child(div().relative().flex_none().child(icon).when(Boolean(m), el => el.child(badge))))
-        .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "This computer"))
+        .when(!collapsed, el => el.child(div().flex_1().truncate().text_color(t.foreground).child(m ?? "This computer"))
           .when(!connected && !rebuilt && !login, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
           .when(rebuilt, el => el.child(h_flex().flex_none().gap(3).items_center()
             .child(div().max_w(140).truncate().child(repair?.error || "rebuilt ·"))
@@ -760,7 +760,7 @@ export default class Spaces extends View {
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/branch.svg").size(13).text_color(t.dim)))
           .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
-          .child(div().flex_shrink(1).min_w(0).max_w(150).truncate().text_color(t.foreground).child(w.name))
+          .child(div().flex_shrink(1).min_w(0).max_w(150).truncate().text_color(on ? t.foreground : t.muted).child(w.name))
           .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1())
           .child(this.spaceFold(w, folded, t)),
       );

@@ -1,6 +1,6 @@
 # herdr-mods
 
-Three mods for the [Herdr](https://herdr.dev) desktop app. Vitals and limits sit together in one side panel tab in my layout; spaces-plus is my left sidebar.
+Four mods for the [Herdr](https://herdr.dev) desktop app. Vitals and limits sit together in one side panel tab in my layout; spaces-plus is my left sidebar and tabs-bar-rightclick my tab bar.
 
 Each mod has its own folder with a `RECIPE.md`, the brief an agent can build it from, and the files under `mods/<name>/`.
 
@@ -47,6 +47,12 @@ Spaces and devices fold. A folded one shows how many agents are inside and a dot
 
 It is a clone of Herdr's shipped `spaces` mod with the agent rows of the shipped `agents` mod ported in, so dragging, worktree nesting, git info and device reconnect work as before.
 
+## tabs-bar-rightclick
+
+<img src="tabs-bar-rightclick/preview.png" alt="Tab bar with the new menu open after a right-click next to the tabs">
+
+Herdr's tab bar, with a right-click on the empty bar next to the tabs opening the same "new" menu as the `+` button. A right-click on a tab still opens the tab's own menu. It also remembers the side panel (Files, Changes, Vitals) per space and adds a Vitals button.
+
 ## Install
 
 ```sh
@@ -55,7 +61,7 @@ cd herdr-mods
 ./install.sh
 ```
 
-The script links `vitals/mods/vitals`, `limits/mods/limits` and `spaces-plus/mods/spaces-plus` into `~/.config/herdr-app/mods`. All three have `"place": "none"`, so they show up only where a layout names them:
+The script links `vitals/mods/vitals`, `limits/mods/limits`, `spaces-plus/mods/spaces-plus` and `tabs-bar-rightclick/mods/tabs-bar-rightclick` into `~/.config/herdr-app/mods`. All four have `"place": "none"`, so they show up only where a layout names them:
 
 ```json
 { "id": "vitals", "type": "column", "children": [
@@ -69,6 +75,8 @@ For spaces-plus, replace the sidebar's spaces and agents blocks (in the shipped 
 ```json
 { "id": "sidebar-list", "type": "block", "content": { "mod": "spaces-plus" }, "size": { "weight": 1 }, "min": 90 }
 ```
+
+For tabs-bar-rightclick, set the tab bar block to `"content": { "mod": "tabs-bar-rightclick" }`.
 
 ## Editing
 
@@ -86,4 +94,4 @@ node --test vitals/mods/vitals/tests/vitals.test.mjs limits/mods/limits/tests/li
 
 ## License
 
-Apache-2.0. Parts of vitals and limits are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. spaces-plus is adapted from the spaces and agents mods shipped with Herdr, also Apache-2.0. See the `NOTICE` file in each mod folder.
+Apache-2.0. Parts of vitals and limits are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. spaces-plus and tabs-bar-rightclick are adapted from mods shipped with Herdr, also Apache-2.0. See the `NOTICE` file in each mod folder.

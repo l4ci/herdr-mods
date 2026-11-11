@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MODS="${HERDR_APP_HOME:-$HOME/.config/herdr-app}/mods"
 
 [ -d "$MODS" ] || { echo "no $MODS (is the Herdr app installed?)" >&2; exit 1; }
-for m in vitals limits spaces-plus; do
+for m in vitals limits spaces-plus tabs-bar-rightclick; do
   if [ -e "$MODS/$m" ] && [ ! -L "$MODS/$m" ]; then
     echo "skip $m: $MODS/$m is a real folder, move it away first" >&2
     continue

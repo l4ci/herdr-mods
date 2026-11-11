@@ -12,7 +12,7 @@ Below it, top to bottom:
 
 - **Device row**, 28px, only when more than this computer is known: `monitor.svg` (this computer) or `server.svg` (others) at 15px, the name in 12.5px `dim` text, 8px apart, then `+` (new space there), a 6px connection dot (`ansi2` connected, `dim` not) and a fold chevron. 20px above every device after the first, 2px below each device row.
 - **Space row**, 30px (28px for a worktree space), `rounded 8`: the shipped spaces row, a colored 18px letter tile (or a branch icon for a worktree nested under its repo), the name, the git tail (repo or branch only when unusual, ↑ahead in `ansi2`, ↓behind in `ansi1`) and a fold chevron at the right end. `selected` background on the active space. 12px between space blocks.
-- **Agent row**, 30px, `px 8` plus 10px more on the left, `gap 9`, `rounded 8`: the program icon (16px), the name (the tab's name or the agent's own title; muted when idle and not focused), the time since its state last changed ("3m", 11px `dim`) and its status mark. `selected` background when focused.
+- **Agent row**, 30px, `px 8` plus 10px more on the left, `gap 9`, `rounded 8`: the program icon (14px), the name (the tab's name or the agent's own title; muted when idle and not focused), the time since its state last changed ("3m", 11px `dim`) and its status mark. `selected` background when focused.
 - **Sub-agent row**, 26px: tree lines in `input`, a 14px icon, the name in `muted`, the status mark. Under its parent, which has a chevron that folds them.
 - **"no agents"**, 30px, italic `dim`, at agent indent, when a space has none.
 

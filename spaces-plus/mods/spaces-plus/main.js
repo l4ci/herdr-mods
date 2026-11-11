@@ -252,7 +252,7 @@ export default class Spaces extends View {
   }
 
   agentRow(a, subs, t) {
-    const pic = icon(a.program, 16, t.foreground);
+    const pic = icon(a.program, 14, t.foreground);
     const when = this.since(a);
     const idle = a.status === "idle" && !a.focused;
     const pin = div().id(`pin-${a.address}`).flex_none().p(2).rounded(4).text_color(t.dim).cursor_pointer()

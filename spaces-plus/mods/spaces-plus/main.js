@@ -595,10 +595,10 @@ export default class Spaces extends View {
       const rebuilt = this.rebuilt(machine) || !!repair;
       const login = machine?.state === "needs_login" ? `hc machine login ${m}` : null;
       const folded = this.folded.has(m);
-      const icon = svg(`mods/workspace-chrome/${m ? "server" : "monitor"}.svg`).size(13).flex_none();
+      const icon = svg(`mods/workspace-chrome/${m ? "server" : "monitor"}.svg`).size(15).flex_none();
       const badge = div().absolute().right(-3).bottom(-2).size(6).rounded(3).border_1().border_color(t.chrome).bg(connected ? t.ansi2 : t.dim);
       const head = h_flex().id(`machine-${m ?? "local"}`).h(collapsed ? 26 : 28).flex_none()
-        .when(!collapsed, el => el.mb(2).when(m !== null, el => el.mt(20))).px(collapsed ? 0 : 8).gap(7).items_center().text_size(11).text_color(t.dim)
+        .when(!collapsed, el => el.mb(2).when(m !== null, el => el.mt(20))).px(collapsed ? 0 : 8).gap(8).items_center().text_size(12.5).text_color(t.dim)
         .when(collapsed, el => el.mt(4).w(RAIL_CELL).justify_center().rounded(6).tooltip(login ? `${m} needs a login: run ${login}. Click for Copy.` : m ? `${m} · ${connected ? "connected" : (machine?.state ?? "asleep").replace(/_/g, " ")}` : "This computer"))
         .cursor_pointer().hover(s => s.bg(t.hover))
         .on_click((_e, cx) => {
@@ -796,12 +796,7 @@ export default class Spaces extends View {
     // agent.next and agent.prev walk the agents top to bottom, folded ones too.
     setAgentOrder(navOrder(this.inOrder.map((r) => this.groups.get(r.w.id) ?? [])));
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
-      .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11.5).text_color(t.dim)
-        .when(collapsed, el => el.pl(0).pr(0).justify_center())
-        .when(!collapsed, el => el.child("Spaces"))
-        .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
-          .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
-      .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pb(14).overflow_y_scrollbar().mode("always")
+      .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pt(8).pb(14).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; this.foldPress = null; cx.notify(); })
         .children(list))
       .when(collapsed, (el) => el.child(h_flex().h(28).flex_none().items_center().justify_center()

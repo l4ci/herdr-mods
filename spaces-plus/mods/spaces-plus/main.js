@@ -1,11 +1,13 @@
-// Workspace spaces: stable colored avatars, worktrees under their checkout,
-// grouped by machine when more than one is known. After a space's name, the repo
-// its first terminal is in now, only where unusual: branch, ahead/behind. Agent state lives in the agents list, not here. Click to
-// switch, right-click for its menu, drag to reorder.
+// Spaces+: Herdr's spaces sidebar with each space's agents under it. Devices,
+// then spaces in the order they were dragged into, then the agents of each space:
+// pinned first, then blocked, done, working, idle. Spaces and devices fold; folded,
+// they say how many agents wait inside and the most urgent state. Adapted from
+// the shipped `spaces` and `agents` mods.
 
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
+import { spaces, machines, panes, agents, terminals, focused, run, openOverlay, exec, hc, theme, shared, setShared, setAgentOrder, watchFolder, window, layout } from "herdr";
+import { RANK, kidStatus, topLevel, sortAgents, bySpace, summary, navOrder } from "./order.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -47,6 +49,47 @@ export function tone(t, status) {
   return t[status] ?? t.unknown;
 }
 
+// --- From the agents mod: an agent row's name and marks. ---
+
+const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
+
+function leadPanes(all) {
+  const leads = new Map();
+  for (const p of all) {
+    if (!p.terminal) continue;
+    const current = leads.get(p.tab);
+    // First agent, else first focused terminal, else first terminal in the tab.
+    if (!current || (!current.program?.agent && (p.program?.agent || (!current.focused && p.focused)))) leads.set(p.tab, p);
+  }
+  return leads;
+}
+
+function title(tab, l) {
+  const prog = l?.program?.name;
+  const live = clean(l?.title);
+  // clean() would strip a path's leading ~ or /: test the title with only its status glyph gone.
+  const path = /^[~/]|^[A-Za-z]:\\/.test((l?.title ?? "").replace(/^[^\p{L}\p{N}~/]+/u, ""));
+  const telling = live && live !== prog && !path && !live.includes("@") && live.toLowerCase() !== l?.program?.key;
+  return (tab.name === prog || !tab.named) && telling ? live : tab.name;
+}
+
+function duration(ms) {
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "<1m";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
+}
+
+// The agent's icon from the app's program table: a one-color glyph or a picture.
+function icon(p, size, color) {
+  if (!p?.icon) return null;
+  return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
+}
+
+// Agent rows sit this much further in than their space's row.
+const AGENT_INDENT = 10;
+
 export default class Spaces extends View {
   init(_props, cx) {
     this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
@@ -67,10 +110,216 @@ export default class Spaces extends View {
     this.reconnecting = JSON.parse(localStorage.getItem("machines.reconnecting") ?? "{}");
     for (const state of Object.values(this.reconnecting)) state.busy = false;
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
+    // Agents: each one's last state and when it changed (ms), kept across restarts.
+    this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
+    this.pendingPins = JSON.parse(localStorage.getItem("pins") ?? "[]");
+    if (!this.pendingPins.length) localStorage.removeItem("pins");
+    this.migratingPins = new Set();
+    this.agentFolds = new Set(); // parents whose sub-agents are folded
+    this.hovered = null; // the agent or "no agents" row under the pointer
+    this.groups = new Map(); // space id -> its agents, sorted
+    this.urgency = new Map(); // agent address -> rank, its sub-agents included
     this.refreshMachines(cx);
-    cx.timer.every(15000, cx => this.refreshMachines(cx));
+    // Machines every 15 s; the agents' "2m" ages need a redraw only twice a minute.
+    let tick = 0;
+    cx.timer.every(15000, cx => { this.refreshMachines(cx); if (++tick % 2 === 0) cx.notify(); });
     // Refresh only when the refs could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
+  }
+
+  // Stamps agents whose state changed. Done and idle count as one: looking at a
+  // finished agent turns done into idle, and looking isn't the agent doing anything.
+  track(list, now) {
+    let dirty = false;
+    for (const a of list) {
+      const s = a.status === "done" ? "idle" : a.status;
+      if (this.changed[a.address]?.s === s) continue;
+      this.changed[a.address] = { s, at: now };
+      dirty = true;
+    }
+    if (!dirty) return;
+    // Gone and old: the list alone is empty right after a start.
+    const listed = new Set(list.map((a) => a.address));
+    for (const [k, c] of Object.entries(this.changed)) if (!listed.has(k) && now - c.at > 30 * 86400000) delete this.changed[k];
+    localStorage.setItem("changed", JSON.stringify(this.changed));
+  }
+
+  // Keep offline pins until their terminal returns, and keep each pending until
+  // core echoes the label so a failed write doesn't erase the old pin.
+  migratePins(all) {
+    const listed = new Map(all.filter((t) => t.state === "live").map((t) => [t.address, t]));
+    const pending = this.pendingPins.filter((address) => {
+      const terminal = listed.get(address);
+      if (!terminal) return true;
+      if (terminal.labels?.["herdr.pinned"]) return false;
+      if (!this.migratingPins.has(address)) {
+        this.migratingPins.add(address);
+        run("terminal.pin", { terminal: address, pinned: true });
+      }
+      return true;
+    });
+    if (pending.length === this.pendingPins.length) return;
+    this.pendingPins = pending;
+    if (pending.length) localStorage.setItem("pins", JSON.stringify(pending));
+    else localStorage.removeItem("pins");
+  }
+
+  since(a) {
+    return this.changed[a.address]?.at ?? 0;
+  }
+
+  // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
+  tree(all, addr, lead = []) {
+    const kids = all.filter((k) => k.parent === addr && k.state === "live");
+    return kids.flatMap((k, i) => {
+      const last = i === kids.length - 1;
+      return [
+        { t: k, lines: [...lead, last ? "└" : "├"] },
+        ...this.tree(all, k.address, [...lead, last ? "" : "│"]),
+      ];
+    });
+  }
+
+  // Everything the agent rows need, read once per render.
+  readAgents() {
+    const list = agents();
+    this.listed = new Map(list.map((a) => [a.address, a.status]));
+    this.all = terminals();
+    this.migratePins(this.all);
+    this.shownAgent = focused()?.agent;
+    this.now = Date.now();
+    this.track(list, this.now);
+    const nested = new Set(list.flatMap((a) => this.tree(this.all, a.address).map((s) => s.t.address)));
+    const top = topLevel(list, nested);
+    this.urgency = new Map(top.map((a) => [a.address, Math.max(RANK[a.status] ?? 0, ...this.tree(this.all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
+    this.groups = new Map([...bySpace(top)].map(([id, l]) => [id, sortAgents(l, (a) => this.urgency.get(a.address), (a) => this.since(a))]));
+    // A row reads its tab's name or the agent's own title, never an automatic tab
+    // number unless two rows in one space would otherwise read the same.
+    const tabCounts = new Map();
+    for (const a of top) tabCounts.set(a.tab, (tabCounts.get(a.tab) ?? 0) + 1);
+    const leads = leadPanes(panes());
+    const tabs = new Map(spaces().flatMap((s) => s.tabs).map((tab) => [tab.id, tab]));
+    const label = new Map(top.map((a) => {
+      const tab = tabs.get(a.tab);
+      const many = tabCounts.get(a.tab) > 1;
+      return [a.address, tab ? title(many ? { ...tab, named: false } : tab, many ? a : leads.get(a.tab)) : (a.title || a.program?.name || "")];
+    }));
+    const detail = new Map(top.map((a) => [a.address, /^\d+$/.test(label.get(a.address)) ? null : label.get(a.address)]));
+    const seen = {};
+    for (const a of top) { const k = `${a.space}\u0000${detail.get(a.address) ?? ""}`; seen[k] = (seen[k] ?? 0) + 1; }
+    for (const a of top) if (detail.get(a.address) == null && seen[`${a.space}\u0000`] > 1) detail.set(a.address, label.get(a.address));
+    this.names = new Map(top.map((a) => {
+      const l = label.get(a.address);
+      return [a.address, detail.get(a.address) ?? (/^\d+$/.test(l) ? a.program?.name || l : l)];
+    }));
+  }
+
+  // working: a spinner; blocked: "Needs you" (compact: a !); done: a dot; idle: a ring.
+  status(t, a, compact = false) {
+    const color = t[a.status] ?? t.dim;
+    if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
+    if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(4).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");
+    if (a.status === "blocked") return div().flex_none().px(6).h(18).rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child("Needs you");
+    if (a.status === "idle") return div().size(7).mx(3).flex_none().rounded(4).border(1.5).border_color(t.idle ?? t.dim);
+    return div().size(7).mx(3).flex_none().rounded(4).bg(a.status === "done" ? color : t.dim + "00");
+  }
+
+  hoverFor(id) {
+    return (on, cx) => {
+      if (on) this.hovered = id;
+      else if (this.hovered === id) this.hovered = null;
+      cx.notify();
+    };
+  }
+
+  // The fold chevron of a parent agent; folded, the count too, colored by the most urgent one.
+  agentFold(a, subs, t) {
+    const sts = subs.map((s) => kidStatus(s.t, this.listed));
+    const top = sts.reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
+    const open = !this.agentFolds.has(a.address);
+    return div().id(`fold-${a.address}`).h(18).px(3).gap(3).flex().items_center().rounded(4)
+      .text_size(11).text_color(open ? t.dim : (t[top] ?? t.dim)).cursor_pointer()
+      .hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .on_click((_e, cx) => {
+        cx.stop_propagation();
+        open ? this.agentFolds.add(a.address) : this.agentFolds.delete(a.address);
+        cx.notify();
+      })
+      .child(svg(`mods/workspace-chrome/chevron-${open ? "down" : "right"}.svg`).size(11).flex_none())
+      .when(!open, (el) => el.child(String(subs.length)));
+  }
+
+  agentRow(a, subs, t) {
+    const pic = icon(a.program, 16, t.foreground);
+    const when = this.since(a);
+    const idle = a.status === "idle" && !a.focused;
+    const pin = div().id(`pin-${a.address}`).flex_none().p(2).rounded(4).text_color(t.dim).cursor_pointer()
+      .hover((s) => s.bg(t.hover).text_color(t.foreground))
+      .tooltip(a.pinned ? "Unpin" : "Pin to the top")
+      .on_click((_e, cx) => {
+        cx.stop_propagation();
+        run("terminal.pin", { terminal: a.address, pinned: !a.pinned });
+        // The row moves away from under the pointer, and no hover-out comes.
+        this.hovered = null;
+        cx.notify();
+      })
+      .child(svg(`mods/workspace-chrome/${a.pinned ? "pin-off" : "pin"}.svg`).size(13));
+    return h_flex().id(`ag-${a.address}`).pl(8 + AGENT_INDENT).pr(8).h(30).flex_none().rounded(8).items_center().gap(9)
+      .when(a.focused, (el) => el.bg(t.selected))
+      .cursor_pointer().hover((s) => s.bg(t.hover))
+      .on_hover(this.hoverFor(a.address))
+      .on_click(() => run("pane.focus", { pane: a.pane }))
+      .when(Boolean(pic), (el) => el.child(div().id(`agent-fold-${a.address}`)
+        .when(subs.length > 0, (el) => el.on_click((_e, cx) => {
+          cx.stop_propagation();
+          this.agentFolds.has(a.address) ? this.agentFolds.delete(a.address) : this.agentFolds.add(a.address);
+          cx.notify();
+        })).child(pic)))
+      .child(div().flex_1().min_w(0).truncate().text_color(idle ? t.muted : t.foreground).child(this.names.get(a.address) ?? ""))
+      .when(subs.length > 0, (el) => el.child(this.agentFold(a, subs, t)))
+      .when(this.hovered === a.address, (el) => el.child(pin))
+      .when(this.hovered !== a.address && Boolean(when), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(this.now - when))))
+      .child(this.status(t, a));
+  }
+
+  subRow(t, s) {
+    const k = s.t;
+    const st = kidStatus(k, this.listed);
+    const pic = icon(k.program, 14, t.foreground);
+    const on = k.address === this.shownAgent;
+    return h_flex().id(`sub-${k.address}`).pl(39 + AGENT_INDENT).pr(8).rounded(8).h(26).flex_none().gap(0).items_center().text_size(12.5)
+      .when(on, (el) => el.bg(t.raised))
+      .hover((s) => s.bg(t.hover))
+      .on_click(() => (this.listed.has(k.address) ? run("pane.focus", { terminal: k.address }) : run("terminal.peek", { terminal: k.address })))
+      .children(s.lines.map((l) => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
+        .when(Boolean(l), (el) => el.border_l(1.5).border_color(t.input))
+        .when(l === "└" || l === "├", (el) => el.border_b(1.5).rounded_bl(6))))
+      .when(Boolean(pic), (el) => el.child(div().mr(8).child(pic)))
+      .child(div().flex_1().truncate().text_color(on ? t.foreground : t.muted).child(k.name || k.template || k.program?.name || k.address))
+      .child(this.status(t, { status: st }));
+  }
+
+  // "no agents": a click opens a terminal tab in that space, where the space is now.
+  noAgents(w, t) {
+    const id = `none-${w.id}`;
+    const ready = !w.machine || machines().find((m) => m.name === w.machine)?.layout === "ready";
+    return h_flex().id(id).pl(8 + AGENT_INDENT).pr(8).h(30).flex_none().rounded(8).items_center().gap(9).text_size(12.5)
+      .when(ready, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)).on_hover(this.hoverFor(id))
+        .on_click(() => run("tab.new", { space: w.id, folder: place(w, panes()) })))
+      .child(div().flex_1().italic().text_color(t.dim).child("no agents"))
+      .when(ready && this.hovered === id, (el) => el.child(h_flex().flex_none().gap(4).items_center().text_size(11.5).text_color(t.foreground)
+        .child(svg("mods/workspace-chrome/plus.svg").size(12)).child("terminal")));
+  }
+
+  // A space's agents, each followed by its sub-agents unless folded; or "no agents".
+  agentRows(w, t) {
+    const list = this.groups.get(w.id) ?? [];
+    if (!list.length) return [this.noAgents(w, t)];
+    return list.flatMap((a) => {
+      const subs = this.tree(this.all, a.address);
+      const r = this.agentRow(a, subs, t);
+      return this.agentFolds.has(a.address) ? [r] : [r, ...subs.map((s) => this.subRow(t, s))];
+    });
   }
 
   checkNew(cx) {
@@ -296,8 +545,10 @@ export default class Spaces extends View {
 
   // The rows, under a header per machine once one isn't this computer.
   grouped(t, collapsed) {
-    const rows = this.ordered();
-    const draw = (r) => (collapsed ? this.compact(r, t) : this.row(r, t));
+    const rows = this.inOrder = this.ordered();
+    // Wide: a space and its agents as one block, 12px from the space above.
+    const draw = (r, n) => (collapsed ? this.compact(r, t)
+      : v_flex().flex_none().when(n > 0, (el) => el.mt(12)).child(this.row(r, t)).children(this.agentRows(r.w, t)));
     const remote = [...new Set([...rows.map(r => r.w.machine).filter(Boolean), ...this.machines.map(m => m.name), ...Object.keys(this.reconnecting)])].sort();
     const loading = m => {
       const layout = machines().find(k => k.name === m)?.layout;
@@ -317,7 +568,8 @@ export default class Spaces extends View {
       const folded = this.folded.has(m);
       const icon = svg(`mods/workspace-chrome/${m ? "server" : "monitor"}.svg`).size(13).flex_none();
       const badge = div().absolute().right(-3).bottom(-2).size(6).rounded(3).border_1().border_color(t.chrome).bg(connected ? t.ansi2 : t.dim);
-      const head = h_flex().id(`machine-${m ?? "local"}`).h(26).flex_none().px(collapsed ? 0 : 8).gap(7).items_center().text_size(11).text_color(t.dim)
+      const head = h_flex().id(`machine-${m ?? "local"}`).h(collapsed ? 26 : 28).flex_none()
+        .when(!collapsed, el => el.mb(2).when(m !== null, el => el.mt(20))).px(collapsed ? 0 : 8).gap(7).items_center().text_size(11).text_color(t.dim)
         .when(collapsed, el => el.mt(4).w(RAIL_CELL).justify_center().rounded(6).tooltip(login ? `${m} needs a login: run ${login}. Click for Copy.` : m ? `${m} · ${connected ? "connected" : (machine?.state ?? "asleep").replace(/_/g, " ")}` : "This computer"))
         .cursor_pointer().hover(s => s.bg(t.hover))
         .on_click((_e, cx) => {
@@ -472,6 +724,10 @@ export default class Spaces extends View {
       changed = true;
     }
     if (changed) setShared("space.colors", kept);
+    this.readAgents();
+    const list = this.grouped(t, collapsed);
+    // agent.next and agent.prev walk the agents top to bottom, folded ones too.
+    setAgentOrder(navOrder(this.inOrder.map((r) => this.groups.get(r.w.id) ?? [])));
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
       .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11.5).text_color(t.dim)
         .when(collapsed, el => el.pl(0).pr(0).justify_center())
@@ -480,6 +736,6 @@ export default class Spaces extends View {
           .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
       .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pb(14).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
-        .children(this.grouped(t, collapsed)));
+        .children(list));
   }
 }

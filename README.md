@@ -1,6 +1,6 @@
 # herdr-mods
 
-Four mods for the [Herdr](https://herdr.dev) desktop app. Vitals and limits sit together in one side panel tab in my layout; spaces-plus is my left sidebar and tabs-bar-rightclick my tab bar.
+Five mods for the [Herdr](https://herdr.dev) desktop app. Vitals and limits sit together in one side panel tab in my layout, limits-bar shows the same limits in the status bar; spaces-plus is my left sidebar and tabs-bar-rightclick my tab bar.
 
 Each mod has its own folder with a `RECIPE.md`, the brief an agent can build it from, and the files under `mods/<name>/`.
 
@@ -47,6 +47,12 @@ Spaces and devices fold. A folded one shows how many agents are inside and a dot
 
 It is a clone of Herdr's shipped `spaces` mod with the agent rows of the shipped `agents` mod ported in, so dragging, worktree nesting, git info and device reconnect work as before.
 
+## limits-bar
+
+<img src="limits-bar/preview.png" alt="Status bar with Claude and Codex limits">
+
+The limits as one line in the bottom status bar: per Claude account and Codex the icon, the name and, per window, a small bar with the percent used. Hover for reset times and pace, click for the usage page. It reads the same data as limits (same script, same cache), so you can show both.
+
 ## tabs-bar-rightclick
 
 <img src="tabs-bar-rightclick/preview.png" alt="Tab bar with the new menu open after a right-click next to the tabs">
@@ -61,7 +67,7 @@ cd herdr-mods
 ./install.sh
 ```
 
-The script links `vitals/mods/vitals`, `limits/mods/limits`, `spaces-plus/mods/spaces-plus` and `tabs-bar-rightclick/mods/tabs-bar-rightclick` into `~/.config/herdr-app/mods`. All four have `"place": "none"`, so they show up only where a layout names them:
+The script links `vitals/mods/vitals`, `limits/mods/limits`, `limits-bar/mods/limits-bar`, `spaces-plus/mods/spaces-plus` and `tabs-bar-rightclick/mods/tabs-bar-rightclick` into `~/.config/herdr-app/mods`. All five have `"place": "none"`, so they show up only where a layout names them:
 
 ```json
 { "id": "vitals", "type": "column", "children": [
@@ -74,6 +80,15 @@ For spaces-plus, replace the sidebar's spaces and agents blocks (in the shipped 
 
 ```json
 { "id": "sidebar-list", "type": "block", "content": { "mod": "spaces-plus" }, "size": { "weight": 1 }, "min": 90 }
+```
+
+For limits-bar, make the status block a row with the status and the bar:
+
+```json
+{ "id": "status", "type": "row", "size": { "px": 28 }, "children": [
+  { "id": "status-main", "type": "block", "content": { "mod": "workspace-status" }, "size": { "weight": 1 } },
+  { "id": "limits-bar", "type": "block", "content": { "mod": "limits-bar" }, "size": { "px": 580 } }
+] }
 ```
 
 For tabs-bar-rightclick, set the tab bar block to `"content": { "mod": "tabs-bar-rightclick" }`.
@@ -94,4 +109,4 @@ node --test vitals/mods/vitals/tests/vitals.test.mjs limits/mods/limits/tests/li
 
 ## License
 
-Apache-2.0. Parts of vitals and limits are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. spaces-plus and tabs-bar-rightclick are adapted from mods shipped with Herdr, also Apache-2.0. See the `NOTICE` file in each mod folder.
+Apache-2.0. Parts of vitals, limits and limits-bar are adapted from [ozcberkay/herdr-coban](https://github.com/ozcberkay/herdr-coban), also Apache-2.0. spaces-plus and tabs-bar-rightclick are adapted from mods shipped with Herdr, also Apache-2.0. See the `NOTICE` file in each mod folder.

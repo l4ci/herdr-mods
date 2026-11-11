@@ -36,5 +36,5 @@ Each item, 22px high, `px 6`, `rounded 5`, `hover` background on hover:
 ## Done when
 
 - `herdr-app check ~/.config/herdr-app/mods/limits-bar` passes.
-- The status bar shows one item per Claude account and Codex with bars and percents that match the Limits panel.
+- The status bar shows one item per Claude account and Codex with percents that match the Limits panel.
 - The tooltip shows reset times; a click opens the usage page.

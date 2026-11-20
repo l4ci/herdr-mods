@@ -49,7 +49,7 @@ It is a clone of Herdr's shipped `spaces` mod with the agent rows of the shipped
 
 ## limits-bar
 
-<img src="limits-bar/preview.png" alt="Status bar with Claude and Codex limits">
+<img src="limits-bar/preview.png" width="785" alt="Status bar with the limits of three Claude accounts and Codex, and the hover card of one account open above it">
 
 The limits as one line in the bottom status bar: per Claude account and Codex the icon, the initials of the name ("CW1" for Claude Work 1) and, per window, the percent used (white, then orange, then red). Hover for reset times and pace, click for the usage page. It reads the same data as limits (same script, same cache), so you can show both.
 

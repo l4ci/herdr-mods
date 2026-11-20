@@ -5,14 +5,14 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, chmodSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SCRIPT, parseOutput, parseClaude, parseCodex, windowLabel, windowState, tone, resetText, span, ageText, isStale, isoSeconds } from "../data.js";
+import { SCRIPT, parseOutput, claudeLabel, initials, parseClaude, parseCodex, windowLabel, windowState, tone, resetText, span, ageText, isStale, isoSeconds } from "../data.js";
 
 const fx = (n) => readFileSync(new URL(`./fixtures/${n}`, import.meta.url), "utf8");
 const H = 3600;
 
 test("shell output: two Claude accounts and Codex from real files", () => {
   const d = parseOutput(fx("shell-output.txt"));
-  assert.deepEqual(d.claude.map((a) => a.label), ["Claude P", "Claude W"]);
+  assert.deepEqual(d.claude.map((a) => a.label), ["Claude Personal", "Claude Work"]);
   const w = d.claude[1];
   assert.equal(w.at, 1793717401);
   assert.deepEqual(w.windows.map((x) => [x.label, x.used]), [["5h", 0], ["7d", 3]]);
@@ -225,4 +225,13 @@ test("script: ~/.claude gets a card when it has a cache file, labelled Claude", 
   writeFileSync(join(sb.cache, "statusline-usage.json"), '{"seven_day":{"utilization":7,"resets_at":null}}\n');
   const d = parseOutput(sb.run());
   assert.deepEqual(d.claude.map((a) => [a.name, a.label, a.windows.length]), [[".claude", "Claude", 1], [".claude-x", "Claude X", 0]]);
+});
+
+test("claude label: full words, split at camelCase and numbers", () => {
+  const labels = [".claude", ".claude-work", ".claude-work1", ".claude-work12", ".claude-myTeam", ".claude-my-team_2", ".claude-w2k", ".claude-1"].map(claudeLabel);
+  assert.deepEqual(labels, ["Claude", "Claude Work", "Claude Work 1", "Claude Work 12", "Claude My Team", "Claude My Team 2", "Claude W 2 K", "Claude 1"]);
+});
+
+test("initials: the first character of each word", () => {
+  assert.deepEqual(["Claude Work 1", "Claude Personal", "Claude", "Codex", "Claude My Team 12"].map(initials), ["CW1", "CP", "C", "C", "CMT1"]);
 });

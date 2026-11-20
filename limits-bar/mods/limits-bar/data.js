@@ -153,6 +153,22 @@ export function parseCodex(line) {
   return { at: isoSeconds(j.timestamp), windows };
 }
 
+// ".claude-work" -> "Claude Work", ".claude-work1" -> "Claude Work 1", ".claude-myTeam" ->
+// "Claude My Team", ".claude" -> "Claude". Words split at "-", "_", camelCase and numbers.
+export function claudeLabel(dir) {
+  const words = dir.replace(/^\.claude-?/, "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([A-Za-z])/g, "$1 $2")
+    .split(/[-_\s]+/).filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1));
+  return ["Claude", ...words].join(" ");
+}
+
+// The short name for the status bar: the first character of each word.
+// "Claude Work 1" -> "CW1", "Claude Personal" -> "CP", "Codex" -> "C".
+export const initials = (label) => label.split(/\s+/).filter(Boolean).map((w) => w.charAt(0)).join("");
+
 // The script's output -> { claude: [{name, label, at, windows}], codex: {at, windows} | null }.
 // `at` = when the source last reported (epoch s).
 export function parseOutput(text) {
@@ -162,7 +178,7 @@ export function parseOutput(text) {
   for (const line of (text ?? "").split("\n")) {
     if (line.startsWith("@@claude ")) {
       const dir = line.slice(9).trim();
-      cur = { kind: "claude", name: dir, label: `Claude ${dir.replace(/^\.claude-?/, "").charAt(0).toUpperCase()}`.trim(), at: null, windows: [] };
+      cur = { kind: "claude", name: dir, label: claudeLabel(dir), at: null, windows: [] };
       claude.push(cur);
     } else if (line === "@@codex") {
       cur = { kind: "codex", at: null, windows: [], line: null };

@@ -1,6 +1,6 @@
 # Limits bar
 
-The Limits mod as one line in Herdr's bottom status bar: each Claude account and Codex with the percent used per window, white while fine, then orange and red. The details are in a tooltip. It reads the same data as Limits, so both can be shown at once.
+The Limits mod as one line in Herdr's bottom status bar: each Claude account and Codex with the percent used per window, white while fine, then orange and red. The details are in a card that opens on hover. It reads the same data as Limits, so both can be shown at once.
 
 ![Limits bar](preview.png)
 
@@ -11,14 +11,14 @@ A block on the right of the status bar, 28px high, `chrome` background, a 1px `b
 Each item, 22px high, `px 6`, `rounded 5`, `hover` background on hover:
 
 - The program icon, 12px (`icons/claude.svg` or `icons/codex.svg`).
-- The name ("Claude P", "Codex") in `muted`; in `ansi3` when the numbers are older than an hour.
+- The initials of the name ("CP" for Claude Personal, "CW1" for Claude Work 1, "C" for Codex) in `muted`; in `ansi3` when the numbers are older than an hour.
 - Per window ("5h", "7d"): the label in `dim` and the percent: `foreground` (white) while fine, `ansi3` (orange) from 70% used or a pace of 85% by the reset, `ansi1` (red) from 90% used or a pace past 100%, `dim` right after a reset.
 - "no data" or "cannot read" in `dim` when there are no windows.
 
 ## How it behaves
 
 - Reads every 30 seconds, as Limits does; redraws when the data changes or the minute turns.
-- Hover an item: a tooltip with each window's percent, reset time ("resets Fri 21:00 (in 2d 3h)"), the pace at the reset, and how old the numbers are.
+- Hover an item for 250ms: a card opens above it (a `HoverCard`, 292px wide, `rounded 10`, border, shadow). Headline: icon, name, and how old the numbers are. Per window: the label, a 6px bar with the pace mark, the percent, and below it the reset time ("Resets Fri 21:00 · in 2d 3h") and the pace at the reset ("pace 92%"). Footer: "Click to open the usage page". The bar and its colors are the same as in the Limits cards.
 - Click an item: the usage page opens (claude.ai or chatgpt.com).
 
 ## Built from
@@ -37,4 +37,4 @@ Each item, 22px high, `px 6`, `rounded 5`, `hover` background on hover:
 
 - `herdr-app check ~/.config/herdr-app/mods/limits-bar` passes.
 - The status bar shows one item per Claude account and Codex with percents that match the Limits panel.
-- The tooltip shows reset times; a click opens the usage page.
+- The hover card shows reset times; a click on the item opens the usage page.

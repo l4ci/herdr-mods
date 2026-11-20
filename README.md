@@ -24,7 +24,7 @@ Network counts physical interfaces only (`en*` on macOS; on Linux everything exc
 
 Subscription usage for Claude accounts and Codex, as bars with a pace mark and the reset time. A click opens the usage page.
 
-Claude accounts are the config folders `~/.claude` and `~/.claude-*` that have a `settings.json` and a `projects` folder. The card label is "Claude" plus the first letter after the dash. `~/.claude` only gets a card when it has a login.
+Claude accounts are the config folders `~/.claude` and `~/.claude-*` that have a `settings.json` and a `projects` folder. The card label is "Claude" plus the folder name after the dash, split into words at camelCase and numbers (`~/.claude-work1` is "Claude Work 1"). `~/.claude` only gets a card when it has a login.
 
 No status line is needed. Every 5 minutes at most, the mod asks the usage endpoint that Claude Code itself uses (`api.anthropic.com/api/oauth/usage`). For that it reads the account's OAuth token: from the Keychain item `Claude Code-credentials` on macOS, or from `.credentials.json` in the config folder elsewhere. Read `SCRIPT` in `limits/mods/limits/data.js` before you install this; it is about 50 lines of shell. Things to know:
 
@@ -51,7 +51,7 @@ It is a clone of Herdr's shipped `spaces` mod with the agent rows of the shipped
 
 <img src="limits-bar/preview.png" alt="Status bar with Claude and Codex limits">
 
-The limits as one line in the bottom status bar: per Claude account and Codex the icon, the name and, per window, the percent used (white, then orange, then red). Hover for reset times and pace, click for the usage page. It reads the same data as limits (same script, same cache), so you can show both.
+The limits as one line in the bottom status bar: per Claude account and Codex the icon, the initials of the name ("CW1" for Claude Work 1) and, per window, the percent used (white, then orange, then red). Hover for reset times and pace, click for the usage page. It reads the same data as limits (same script, same cache), so you can show both.
 
 ## tabs-bar-rightclick
 

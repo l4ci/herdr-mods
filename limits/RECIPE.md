@@ -12,7 +12,7 @@ The panel has the `chrome` color as its background, 8px padding left, right and 
 
 Each card has the `background` color, a 1px `border` outline and 10px corners:
 
-- A headline row, 34px high, with a 1px line below it: the program icon (13px, `icons/claude.svg` or `icons/codex.svg` from Herdr's shipped icons), the name in semibold ("Claude P", "Claude W", "Codex"), and on the right when the numbers were last read ("now", "7m ago", "3d 10h ago") in 11px `dim` text. Older than one hour, that text is `ansi3` (yellow).
+- A headline row, 34px high, with a 1px line below it: the program icon (13px, `icons/claude.svg` or `icons/codex.svg` from Herdr's shipped icons), the name in semibold ("Claude Personal", "Claude Work", "Codex"), and on the right when the numbers were last read ("now", "7m ago", "3d 10h ago") in 11px `dim` text. Older than one hour, that text is `ansi3` (yellow).
 - One row per limit window, 20px high: the window label ("5h", "7d") in 11px `dim` text, a 6px rounded bar, the percent used right-aligned in a 32px column, and the reset right-aligned in a 62px column. The reset is a countdown ("1h 05m") inside the last 24 hours, else weekday and time ("Tue 02:00").
 - On the bar, a 2px wide, 12px high mark in the foreground color at 55% opacity shows the share of the window that has passed.
 
@@ -20,7 +20,7 @@ A bar is `accent` while things are fine. It is `ansi3` from 70% used, or when th
 
 A card without data shows "no data yet". If the script itself fails, every card shows "cannot read".
 
-A Claude account is a config folder: `~/.claude` and every `~/.claude-*` that has a `settings.json` and a `projects` folder. The card name is "Claude" plus the first letter after the dash, in upper case. `~/.claude` gets a card only when it has a login or cached numbers.
+A Claude account is a config folder: `~/.claude` and every `~/.claude-*` that has a `settings.json` and a `projects` folder. The card name is "Claude" plus the folder name after the dash, as words with a capital first letter. Words split at `-`, `_`, camelCase and numbers: `~/.claude-work1` is "Claude Work 1". `~/.claude` gets a card only when it has a login or cached numbers.
 
 ## How it behaves
 
